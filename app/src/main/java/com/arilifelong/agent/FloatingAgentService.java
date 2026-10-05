@@ -164,7 +164,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 runActions(result.optJSONArray("actions"));
                 String reply=result.optString("reply","בוצע");
                 setMode("✓  בוצע","בוצע");
-                voice.speak(reply, this::startVoiceInput);
+                voice.speak(reply, FloatingAgentService.this::startVoiceInput);
             }
             @Override public void error(String message){
                 setMode("⚠  שגיאה","שגיאה");
@@ -183,6 +183,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     private void runActions(JSONArray a){
         if(a==null)return;
         for(int i=0;i<a.length();i++)try{
+            setMode("⚙ "+(i+1)+"/"+a.length(),"מבצע שלב "+(i+1)+" מתוך "+a.length());
             JSONObject x=a.getJSONObject(i); String t=x.optString("type");
             switch(t){
                 case "open_url": ActionEngine.openUrl(this,x.optString("url"));break;
@@ -209,6 +210,19 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 case "click_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.clickContains(x.optString("text"));break;}
                 case "type_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.setText(x.optString("text"));break;}
                 case "scroll": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.scroll(!"back".equals(x.optString("direction")));break;}
+                case "screen_info": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)voice.speak(s.screenText(),FloatingAgentService.this::startVoiceInput);break;}
+                case "click_repeat": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.clickRepeat(x.optString("text"),x.optInt("count",3),x.optLong("delay",250));break;}
+                case "scroll_until_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.scrollUntilText(x.optString("text"),!"back".equalsIgnoreCase(x.optString("direction")),x.optInt("max",30),x.optLong("delay",250));break;}
+                case "screenshot": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.screenshot();break;}
+                case "volume": ActionEngine.volume(this,x.optString("stream","music"),x.optString("direction","up"));break;
+                case "brightness": ActionEngine.brightness(this,x.optInt("value",128));break;
+                case "system_action": ActionEngine.systemAction(this,x.optString("action"));break;
+                case "hide_overlay": if(bar!=null)bar.setVisibility(View.GONE);break;
+                case "show_overlay": if(bar!=null)bar.setVisibility(View.VISIBLE);break;
+                case "resize_overlay": if(overlayLp!=null&&wm!=null&&bar!=null){overlayLp.width=Math.max(260,Math.min(900,x.optInt("width",520)));try{wm.updateViewLayout(bar,overlayLp);}catch(Exception ignored){}}break;
+                case "move_overlay_xy": if(overlayLp!=null&&wm!=null&&bar!=null){overlayLp.gravity=Gravity.TOP|Gravity.LEFT;overlayLp.x=x.optInt("x",0);overlayLp.y=Math.max(8,x.optInt("y",80));try{wm.updateViewLayout(bar,overlayLp);}catch(Exception ignored){}}break;
+                case "save_routine": {String n=x.optString("name","routine"),data=x.optString("routine_json","[]");getSharedPreferences("routines",0).edit().putString(n,data).apply();break;}
+                case "run_routine": {String n=x.optString("name","routine"),data=getSharedPreferences("routines",0).getString(n,"[]");try{runActions(new JSONArray(data));}catch(Exception ignored){}break;}
                 case "copy": {android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("agent",x.optString("text")));break;}
             }
         }catch(Exception ignored){}
