@@ -75,7 +75,6 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         root.setPadding(18,10,12,10);
         root.setBackground(bg(Color.WHITE,38));
 
-        LinearLayout.LayoutParams rootLp=new LinearLayout.LayoutParams(-1,WRAP_CONTENT);
         root.setElevation(12f);
 
         TextView icon=label("✦",22,Color.rgb(70,55,160));
