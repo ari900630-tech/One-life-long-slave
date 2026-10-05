@@ -73,7 +73,7 @@ public final class ActionEngine {
     public static boolean systemAction(Context c,String action){
         try{String a=action==null?"":action.toLowerCase(Locale.ROOT);Intent i;
             if(a.contains("wifi"))i=new Intent(Settings.Panel.ACTION_WIFI);
-            else if(a.contains("bluetooth"))i=new Intent(Settings.Panel.ACTION_BLUETOOTH);
+            else if(a.contains("bluetooth"))i=new Intent(Settings.ACTION_BLUETOOTH_SETTINGS);
             else if(a.contains("internet")||a.contains("network"))i=new Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY);
             else if(a.contains("display")||a.contains("screen"))i=new Intent(Settings.ACTION_DISPLAY_SETTINGS);
             else if(a.contains("sound")||a.contains("volume"))i=new Intent(Settings.ACTION_SOUND_SETTINGS);
