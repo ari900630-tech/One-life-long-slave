@@ -148,6 +148,12 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
                 case "maps": ok=ActionEngine.maps(this,x.optString("query"));break;
                 case "camera": ok=ActionEngine.camera(this);break;
                 case "settings": ok=ActionEngine.settings(this);break;
+                case "app_settings": ok=ActionEngine.appSettings(this,x.optString("package"));break;
+                case "play_store_search": ok=ActionEngine.playStoreSearch(this,x.optString("query"));break;
+                case "long_click": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.longClick((float)x.optDouble("x",540),(float)x.optDouble("y",1000));break;}
+                case "tap": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.tap((float)x.optDouble("x",540),(float)x.optDouble("y",1000));break;}
+                case "swipe": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.swipe((float)x.optDouble("x1",540),(float)x.optDouble("y1",1500),(float)x.optDouble("x2",540),(float)x.optDouble("y2",500),(long)x.optDouble("duration",600));break;}
+                case "scroll_repeat": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null; if(ok){int n=Math.min(50,Math.max(1,x.optInt("count",10)));boolean fwd=!"back".equalsIgnoreCase(x.optString("direction"));for(int k=0;k<n;k++){if(!s.scroll(fwd))break;try{Thread.sleep(Math.min(800,Math.max(50,x.optInt("delay",250))));}catch(Exception ignored){}}}break;}
                 case "back": ok=ActionEngine.back();break;
                 case "home": ok=ActionEngine.home();break;
                 case "recents": ok=ActionEngine.recents();break;
