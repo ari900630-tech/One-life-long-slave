@@ -11,7 +11,7 @@
 .app{max-width:760px;margin:auto;min-height:100dvh;padding:18px 14px 26px;display:flex;flex-direction:column}
 header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 18px}
 .brand{display:flex;align-items:center;gap:11px}.logo{width:44px;height:44px;border-radius:15px;background:linear-gradient(145deg,#766cff,#4d46d9);display:grid;place-items:center;color:#fff;font-size:22px;box-shadow:0 10px 25px #635bff30}
-h1{font-size:20px;margin:0} .status{font-size:12px;color:#2f9e62;background:#eaf8f0;padding:7px 10px;border-radius:99px}
+h1{font-size:20px;margin:0}.status{font-size:12px;color:#2f9e62;background:#eaf8f0;padding:7px 10px;border-radius:99px}
 .chat{flex:1;display:flex;flex-direction:column;gap:12px;padding:8px 0 16px}
 .msg{max-width:88%;padding:13px 15px;border-radius:18px;line-height:1.55;white-space:pre-wrap;box-shadow:0 3px 16px #11182708}
 .user{align-self:flex-start;background:#635bff;color:#fff;border-bottom-left-radius:6px}.bot{align-self:flex-end;background:#fff;border:1px solid var(--line);border-bottom-right-radius:6px}
@@ -26,7 +26,7 @@ textarea{border:0;outline:0;resize:none;flex:1;font:inherit;min-height:42px;max-
 <body>
 <div class="app">
 <header><div class="brand"><div class="logo">✦</div><div><h1>הסוכן שלי</h1><div style="font-size:12px;color:#687386">AI אישי לטלפון</div></div></div><div class="status" id="status">מוכן</div></header>
-<main class="chat" id="chat"><div class="msg bot">שלום. כתוב לי מה אתה רוצה לעשות, ואני אנסה לבצע את הפעולה דרך היכולות שהטלפון והדפדפן מאפשרים.</div></main>
+<main class="chat" id="chat"><div class="msg bot">שלום. כתוב לי מה אתה רוצה לעשות, והסוכן יבצע מיד את הפעולות שהטלפון והדפדפן מאפשרים.</div></main>
 <div class="quick">
 <button onclick="fill('פתח לי את Google')">Google</button>
 <button onclick="fill('פתח מפה וחפש מסעדה קרובה')">מפות</button>
@@ -34,7 +34,7 @@ textarea{border:0;outline:0;resize:none;flex:1;font:inherit;min-height:42px;max-
 <button onclick="fill('שלח הודעת SMS')">SMS</button>
 </div>
 <div class="composer"><textarea id="input" placeholder="מה תרצה שאעשה?" rows="1"></textarea><button class="send" id="send">➤</button></div>
-<div class="hint">הסוכן עובד דרך שרת מאובטח; מפתח Groq לא נמצא בדפדפן.</div>
+<div class="hint">ביצוע אוטומטי פעיל. הרשאות מערכת Android, אם יידרשו, מטופלות על ידי Android.</div>
 </div>
 <script>
 const chat=document.getElementById('chat'), input=document.getElementById('input'), send=document.getElementById('send'), statusEl=document.getElementById('status');
@@ -45,14 +45,18 @@ function add(text,who,actions=[]){
  chat.appendChild(box); chat.scrollTop=chat.scrollHeight;
 }
 function fill(v){input.value=v;input.focus()}
+function safeNumber(v){return String(v||'').replace(/[^0-9+*#;, -]/g,'')}
+function safePackage(v){return /^[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+$/.test(String(v||''))}
 function run(a){
- if(a.type==='open_url') location.href=a.url;
- else if(a.type==='dial') location.href='tel:'+a.number;
- else if(a.type==='sms') location.href='sms:'+a.number+'?body='+encodeURIComponent(a.text||'');
- else if(a.type==='email') location.href='mailto:'+a.address+'?subject='+encodeURIComponent(a.subject||'')+'&body='+encodeURIComponent(a.body||'');
- else if(a.type==='maps') location.href='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(a.query||'');
- else if(a.type==='copy') navigator.clipboard?.writeText(a.text||'').then(()=>add('הטקסט הועתק.','bot'));
- else if(a.type==='open_app' && a.package) location.href='intent:#Intent;package='+a.package+';end';
+ try{
+  if(a.type==='open_url' && /^https:\/\//i.test(a.url)) location.href=a.url;
+  else if(a.type==='dial'){const n=safeNumber(a.number);if(n) location.href='tel:'+n}
+  else if(a.type==='sms'){const n=safeNumber(a.number);if(n) location.href='sms:'+n+'?body='+encodeURIComponent(a.text||'')}
+  else if(a.type==='email' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(a.address||''))) location.href='mailto:'+a.address+'?subject='+encodeURIComponent(a.subject||'')+'&body='+encodeURIComponent(a.body||'');
+  else if(a.type==='maps') location.href='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(a.query||'');
+  else if(a.type==='copy') navigator.clipboard?.writeText(a.text||'').then(()=>add('הטקסט הועתק.','bot'));
+  else if(a.type==='open_app' && safePackage(a.package)) location.href='intent:#Intent;package='+a.package+';end';
+ }catch(e){add('לא ניתן לבצע את הפעולה הזאת במכשיר.','bot')}
 }
 async function ask(){
  const text=input.value.trim(); if(!text)return;
@@ -60,7 +64,8 @@ async function ask(){
  try{
   const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:history})});
   const d=await r.json(); if(!r.ok) throw new Error(d.error||'שגיאה');
-  add(d.reply||'בוצע.', 'bot', d.actions||[]); history.push({role:'assistant',content:JSON.stringify(d)});
+  add(d.reply||'בוצע.', 'bot', d.actions||[]);
+  history.push({role:'assistant',content:JSON.stringify(d)});
   statusEl.textContent='מוכן';
  }catch(e){add(e.message||'אירעה שגיאה','bot');statusEl.textContent='שגיאה'}
  finally{send.disabled=false;input.focus()}
