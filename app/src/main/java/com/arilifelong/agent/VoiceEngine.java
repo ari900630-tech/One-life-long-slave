@@ -19,6 +19,7 @@ public class VoiceEngine implements RecognitionListener, TextToSpeech.OnInitList
     private TextToSpeech tts;
     private boolean ttsReady = false;
     private String pendingSpeech;
+    private Runnable pendingSpeechCallback;
     private final java.util.Map<String, Runnable> speechCallbacks = new java.util.HashMap<>();
 
     public VoiceEngine(Context c, Listener l) {
@@ -58,6 +59,7 @@ public class VoiceEngine implements RecognitionListener, TextToSpeech.OnInitList
     public void speak(String text, final Runnable afterSpeech) {
         if (text == null || text.trim().isEmpty()) return;
         pendingSpeech = text.trim();
+        pendingSpeechCallback = afterSpeech;
         if (!ttsReady || tts == null) return;
         speakNow(pendingSpeech, afterSpeech);
         pendingSpeech = null;
@@ -113,8 +115,10 @@ public class VoiceEngine implements RecognitionListener, TextToSpeech.OnInitList
 
         if (pendingSpeech != null) {
             String text = pendingSpeech;
+            Runnable callback = pendingSpeechCallback;
             pendingSpeech = null;
-            speakNow(text);
+            pendingSpeechCallback = null;
+            speakNow(text, callback);
         }
     }
 
