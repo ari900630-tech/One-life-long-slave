@@ -124,19 +124,48 @@ public class VoiceEngine implements RecognitionListener, TextToSpeech.OnInitList
 
     @Override public void onResults(Bundle b) {
         ArrayList<String> r = b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-        if (listener != null && r != null && !r.isEmpty()) listener.onText(r.get(0));
-        if (listener != null) listener.onState("מוכן");
+        if (listener != null && r != null && !r.isEmpty()) {
+            listener.onText(r.get(0));
+        } else if (listener != null) {
+            listener.onState("לא זוהה קול");
+        }
     }
 
     @Override public void onError(int e) {
-        if (listener != null) listener.onState("לא זוהה קול");
+        if (listener != null) {
+            listener.onState("שגיאת מיקרופון: " + errorName(e));
+        }
+    }
+
+    private String errorName(int e) {
+        switch (e) {
+            case SpeechRecognizer.ERROR_AUDIO: return "בעיית שמע";
+            case SpeechRecognizer.ERROR_CLIENT: return "שגיאת אפליקציה";
+            case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS: return "אין הרשאת מיקרופון";
+            case SpeechRecognizer.ERROR_NETWORK: return "בעיית רשת";
+            case SpeechRecognizer.ERROR_NETWORK_TIMEOUT: return "פסק זמן רשת";
+            case SpeechRecognizer.ERROR_NO_MATCH: return "לא זוהה דיבור";
+            case SpeechRecognizer.ERROR_RECOGNIZER_BUSY: return "מנוע הקול עסוק";
+            case SpeechRecognizer.ERROR_SERVER: return "שגיאת שרת קול";
+            case SpeechRecognizer.ERROR_SPEECH_TIMEOUT: return "לא התחלת לדבר";
+            default: return "קוד " + e;
+        }
     }
 
     @Override public void onReadyForSpeech(Bundle b) {}
-    @Override public void onBeginningOfSpeech() {}
-    @Override public void onRmsChanged(float v) {}
+    @Override public void onBeginningOfSpeech() {
+        if (listener != null) listener.onState("שומע אותך...");
+    }
+
+    @Override public void onRmsChanged(float v) {
+        if (listener != null && v > 2.0f) listener.onState("קולט קול...");
+    }
+
     @Override public void onBufferReceived(byte[] b) {}
-    @Override public void onEndOfSpeech() {}
+
+    @Override public void onEndOfSpeech() {
+        if (listener != null) listener.onState("מעבד את הדיבור...");
+    }
     @Override public void onPartialResults(Bundle b) {}
     @Override public void onEvent(int t, Bundle b) {}
 }
