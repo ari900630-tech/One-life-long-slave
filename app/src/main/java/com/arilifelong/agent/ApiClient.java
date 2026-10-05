@@ -34,6 +34,34 @@ public final class ApiClient {
             finally{ if(c!=null)c.disconnect(); }
         }).start();
     }
+    public static void transcribe(final File audio, final Callback cb){
+        new Thread(() -> {
+            HttpURLConnection c=null;
+            String boundary="----PhoneAgent"+System.currentTimeMillis();
+            try{
+                URL u=new URL(DEFAULT_BASE+"/api/transcribe");
+                c=(HttpURLConnection)u.openConnection();
+                c.setRequestMethod("POST"); c.setConnectTimeout(15000); c.setReadTimeout(60000);
+                c.setRequestProperty("Content-Type","multipart/form-data; boundary="+boundary);
+                c.setDoOutput(true);
+                try(OutputStream os=c.getOutputStream(); FileInputStream fis=new FileInputStream(audio)){
+                    String head="--"+boundary+"\r\nContent-Disposition: form-data; name=\"file\"; filename=\"speech.wav\"\r\nContent-Type: audio/wav\r\n\r\n";
+                    os.write(head.getBytes("UTF-8"));
+                    byte[] buf=new byte[8192]; int n;
+                    while((n=fis.read(buf))!=-1)os.write(buf,0,n);
+                    os.write(("\r\n--"+boundary+"--\r\n").getBytes("UTF-8"));
+                }
+                int code=c.getResponseCode();
+                InputStream in=code>=200&&code<300?c.getInputStream():c.getErrorStream();
+                String response=read(in);
+                JSONObject out=new JSONObject(response);
+                Handler h=new Handler(Looper.getMainLooper());
+                if(code>=200&&code<300)h.post(() -> cb.success(out)); else h.post(() -> cb.error(out.optString("error","שגיאת תמלול")));
+            }catch(Exception e){ new Handler(Looper.getMainLooper()).post(() -> cb.error("אין חיבור לשירות הקול")); }
+            finally{ if(c!=null)c.disconnect(); if(audio!=null)audio.delete(); }
+        }).start();
+    }
+
     private static String read(InputStream in)throws Exception{
         if(in==null)return "{}";
         StringBuilder s=new StringBuilder(); char[] b=new char[2048];
