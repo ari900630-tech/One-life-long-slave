@@ -16,4 +16,4 @@ jobs:
           cache: npm
       - run: npm install
       - run: node --check server.js
-      - run: node --check public/index.html
+      - run: test -s public/index.html
