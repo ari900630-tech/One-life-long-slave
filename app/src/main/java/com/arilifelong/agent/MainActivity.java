@@ -126,7 +126,16 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         else if("מוכן".equals(s)) { setIndicators("מיקרופון מוכן","ממתין לפקודה","מוכן"); updateMicrophoneNotification("המיקרופון מוכן — אינו מקליט עכשיו"); }
     }
 
-    private void updateMicrophoneNotification(String text){\n        try {\n            Intent i=new Intent(this,FloatingAgentService.class);\n            i.setAction(FloatingAgentService.ACTION_UPDATE_NOTIFICATION);\n            i.putExtra("text",text);\n            if(android.os.Build.VERSION.SDK_INT>=26) startForegroundService(i); else startService(i);\n        } catch(Exception ignored) {}\n    }\n\n    private void setIndicators(String a,String b,String c){
+    private void updateMicrophoneNotification(String text){
+        try {
+            Intent i=new Intent(this,FloatingAgentService.class);
+            i.setAction(FloatingAgentService.ACTION_UPDATE_NOTIFICATION);
+            i.putExtra("text",text);
+            if(android.os.Build.VERSION.SDK_INT>=26) startForegroundService(i); else startService(i);
+        } catch(Exception ignored) {}
+    }
+
+    private void setIndicators((String a,String b,String c){
         if(micIndicator!=null)micIndicator.setText("● "+a);
         if(heardIndicator!=null)heardIndicator.setText("● "+b);
         if(agentIndicator!=null)agentIndicator.setText("● "+c);
