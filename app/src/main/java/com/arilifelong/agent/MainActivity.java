@@ -29,7 +29,7 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         findViewById(R.id.permissions).setOnClickListener(v->requestPermissions());
         findViewById(R.id.talk).setOnClickListener(v->startVoiceInput());
         updateStatus();
-        startConversation();
+        // השיחה מתבצעת מהחלונית הצפה; אין צורך לפתוח את האפליקציה הראשית.
     }
 
     private boolean has(String p){return android.os.Build.VERSION.SDK_INT<23||checkSelfPermission(p)==PackageManager.PERMISSION_GRANTED;}
