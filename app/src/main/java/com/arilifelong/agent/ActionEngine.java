@@ -53,9 +53,6 @@ public final class ActionEngine {
     public static boolean appSettings(Context c,String pkg){
         try { c.startActivity(ready(c,new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+pkg)))); return true; } catch(Exception e){ return false; }
     }
-    public static boolean appSettings(Context c,String pkg){
-        try { c.startActivity(ready(c,new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+pkg)))); return true; } catch(Exception e){ return false; }
-    }
     public static boolean playStoreSearch(Context c,String query){
         try { return openUrl(c,"https://play.google.com/store/search?q="+Uri.encode(query)+"&c=apps"); } catch(Exception e){ return false; }
     }
