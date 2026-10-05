@@ -52,23 +52,8 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         setIndicators("מיקרופון פעיל","מקשיב עכשיו...","ממתין");
         updateMicrophoneNotification("המיקרופון פועל — הסוכן מאזין");
         boolean started=voice.startListening();
-        if(!started) startSystemVoiceFallback();
-    }
-
-    private void startSystemVoiceFallback(){
-        try {
-            Intent i=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE,"he-IL");
-            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE,"he-IL");
-            i.putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE,false);
-            i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,3);
-            i.putExtra(RecognizerIntent.EXTRA_PROMPT,"דבר עכשיו");
-            startActivityForResult(i,VOICE_REQUEST);
-            setIndicators("מיקרופון פעיל","מקשיב דרך שירות הקול של Android...","ממתין");
-        updateMicrophoneNotification("המיקרופון פועל — הסוכן מאזין");
-        } catch(Exception e) {
-            setIndicators("מיקרופון לא זמין","שירות זיהוי קול לא מותקן","יש להתקין/להפעיל Google או מנוע קול");
-            status.setText("לא נמצא שירות זיהוי קול במכשיר");
+        if(!started){
+            updateMicrophoneNotification("המיקרופון אינו פעיל — בדוק הרשאת מיקרופון");
         }
     }
 
@@ -123,9 +108,13 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
 
     @Override public void onState(String s){
         status.setText(s);
-        if("מאזין...".equals(s)) setIndicators("מיקרופון פעיל","מקשיב עכשיו...","ממתין לתשובה");
-        else if("לא זוהה קול".equals(s)) { setIndicators("מיקרופון פעיל","לא זוהה קול","לא נשלחה פקודה"); updateMicrophoneNotification("המיקרופון פועל — לא זוהה קול"); }
-        else if(s.contains("מנוע הדיבור")||s.contains("קול עברי")) { setIndicators("מיקרופון לא זמין","לא זוהה קול","בעיה במנוע הקולי"); updateMicrophoneNotification("המיקרופון אינו פעיל — בעיה במנוע הקולי"); }
+        if("מאזין...".equals(s)) { setIndicators("מיקרופון פעיל","מקשיב עכשיו...","ממתין לתשובה"); updateMicrophoneNotification("המיקרופון פועל — הסוכן מאזין"); }
+        else if("שומע אותך...".equals(s)) { setIndicators("מיקרופון פעיל","שומע אותך עכשיו...","מקליט"); updateMicrophoneNotification("המיקרופון פועל — שומע אותך"); }
+        else if("קולט קול...".equals(s)) { setIndicators("מיקרופון פעיל","קולט קול...","מקליט"); updateMicrophoneNotification("המיקרופון פועל — קולט קול"); }
+        else if("מעבד את הדיבור...".equals(s)) { setIndicators("מיקרופון פעיל","מעבד את הדיבור...","שולח לתמלול"); updateMicrophoneNotification("המיקרופון סיים הקלטה — מתמלל"); }
+        else if("לא זוהה קול".equals(s)) { setIndicators("מיקרופון מוכן","לא זוהה קול","לא נשלחה פקודה"); updateMicrophoneNotification("המיקרופון מוכן — לא נקלט דיבור"); }
+        else if(s.contains("מנוע הדיבור")||s.contains("קול עברי")) { setIndicators("מיקרופון לא זמין","לא זוהה קול","בעיה במנוע הקולי"); updateMicrophoneNotification("הקול אינו זמין — בדוק מנוע TTS"); }
+        else if(s.startsWith("שגיאת מיקרופון:")) { setIndicators("מיקרופון לא זמין",s,"ההאזנה נעצרה"); updateMicrophoneNotification(s); }
         else if("מוכן".equals(s)) { setIndicators("מיקרופון מוכן","ממתין לפקודה","מוכן"); updateMicrophoneNotification("המיקרופון מוכן — אינו מקליט עכשיו"); }
     }
 
