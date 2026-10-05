@@ -113,8 +113,8 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         setIndicators("מיקרופון קלט קול","שמעתי: "+text,"מעבד עכשיו...");
         status.setText("הסוכן מבצע: "+text);
         ApiClient.chat(text,new ApiClient.Callback(){
-            public void success(JSONObject result){runActions(result.optJSONArray("actions")); String reply=result.optString("reply","בוצע"); status.setText(reply); setIndicators("מיקרופון מוכן","הפקודה נקלטה","הסוכן משיב"); voice.speak(reply, this::startVoiceInput);}
-            public void error(String message){status.setText(message); setIndicators("מיקרופון מוכן","הפקודה נקלטה","שגיאה: "+message); voice.speak(message, this::startVoiceInput);}
+            public void success(JSONObject result){runActions(result.optJSONArray("actions")); String reply=result.optString("reply","בוצע"); status.setText(reply); setIndicators("מיקרופון מוכן","הפקודה נקלטה","הסוכן משיב"); voice.speak(reply, MainActivity.this::startVoiceInput);}
+            public void error(String message){status.setText(message); setIndicators("מיקרופון מוכן","הפקודה נקלטה","שגיאה: "+message); voice.speak(message, MainActivity.this::startVoiceInput);}
         });
     }
 
