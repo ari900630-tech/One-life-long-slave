@@ -29,6 +29,7 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         findViewById(R.id.permissions).setOnClickListener(v->requestPermissions());
         findViewById(R.id.talk).setOnClickListener(v->startVoiceInput());
         updateStatus();
+        startConversation();
     }
 
     private boolean has(String p){return android.os.Build.VERSION.SDK_INT<23||checkSelfPermission(p)==PackageManager.PERMISSION_GRANTED;}
@@ -36,6 +37,10 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
     private void requestPermissions(){
         if(android.os.Build.VERSION.SDK_INT<23)return;
         requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO,Manifest.permission.CAMERA,Manifest.permission.READ_CONTACTS,Manifest.permission.CALL_PHONE,Manifest.permission.SEND_SMS},PERM_REQUEST);
+    }
+
+    private void startConversation(){
+        voice.speak("שלום, אני הסוכן שלך. מה תרצה שאעשה עכשיו?", this::startVoiceInput);
     }
 
     private void startVoiceInput(){
@@ -108,8 +113,8 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         setIndicators("מיקרופון קלט קול","שמעתי: "+text,"מעבד עכשיו...");
         status.setText("הסוכן מבצע: "+text);
         ApiClient.chat(text,new ApiClient.Callback(){
-            public void success(JSONObject result){runActions(result.optJSONArray("actions")); String reply=result.optString("reply","בוצע"); status.setText(reply); setIndicators("מיקרופון מוכן","הפקודה נקלטה","הסוכן משיב"); voice.speak(reply);}
-            public void error(String message){status.setText(message); setIndicators("מיקרופון מוכן","הפקודה נקלטה","שגיאה: "+message); voice.speak(message);}
+            public void success(JSONObject result){runActions(result.optJSONArray("actions")); String reply=result.optString("reply","בוצע"); status.setText(reply); setIndicators("מיקרופון מוכן","הפקודה נקלטה","הסוכן משיב"); voice.speak(reply, this::startVoiceInput);}
+            public void error(String message){status.setText(message); setIndicators("מיקרופון מוכן","הפקודה נקלטה","שגיאה: "+message); voice.speak(message, this::startVoiceInput);}
         });
     }
 
