@@ -21,6 +21,8 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     private static final int NOTIFICATION_ID=7;
     public static final String ACTION_UPDATE_NOTIFICATION="com.arilifelong.agent.UPDATE_NOTIFICATION";
     private String notificationText="הסוכן הצף פעיל";
+    private WindowManager.LayoutParams overlayLp;
+    private float downX,downY; private int startX,startY; private boolean dragging;
 
     @Override public void onCreate() {
         super.onCreate();
@@ -112,8 +114,23 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 -1,WindowManager.LayoutParams.WRAP_CONTENT,type,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT);
-        lp.gravity=Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL;
-        lp.y=18;
+        lp.gravity=Gravity.TOP|Gravity.CENTER_HORIZONTAL;
+        lp.y=80;
+        overlayLp=lp;
+        View.OnTouchListener dragListener=(v,e)->{
+            switch(e.getActionMasked()){
+                case MotionEvent.ACTION_DOWN: downX=e.getRawX(); downY=e.getRawY(); startX=overlayLp.x; startY=overlayLp.y; dragging=false; return true;
+                case MotionEvent.ACTION_MOVE:
+                    float dx=e.getRawX()-downX, dy=e.getRawY()-downY;
+                    if(Math.abs(dx)>8||Math.abs(dy)>8) dragging=true;
+                    if(dragging){ overlayLp.x=startX+(int)dx; overlayLp.y=Math.max(8,startY+(int)dy); try{wm.updateViewLayout(bar,overlayLp);}catch(Exception ignored){} }
+                    return true;
+                case MotionEvent.ACTION_UP: return true;
+            }
+            return false;
+        };
+        icon.setOnTouchListener(dragListener);
+        info.setOnTouchListener(dragListener);
         wm.addView(root,lp);
         bar=root;
     }
@@ -147,7 +164,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 runActions(result.optJSONArray("actions"));
                 String reply=result.optString("reply","בוצע");
                 setMode("✓  בוצע","בוצע");
-                voice.speak(reply);
+                voice.speak(reply, this::startVoiceInput);
             }
             @Override public void error(String message){
                 setMode("⚠  שגיאה","שגיאה");
@@ -177,6 +194,13 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 case "maps": ActionEngine.maps(this,x.optString("query"));break;
                 case "camera": ActionEngine.camera(this);break;
                 case "settings": ActionEngine.settings(this);break;
+                case "app_settings": ActionEngine.appSettings(this,x.optString("package"));break;
+                case "play_store_search": ActionEngine.playStoreSearch(this,x.optString("query"));break;
+                case "move_overlay": moveOverlay(x.optString("position","top"));break;
+                case "long_click": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.longClick((float)x.optDouble("x",540),(float)x.optDouble("y",1000));break;}
+                case "tap": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.tap((float)x.optDouble("x",540),(float)x.optDouble("y",1000));break;}
+                case "swipe": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.swipe((float)x.optDouble("x1",540),(float)x.optDouble("y1",1500),(float)x.optDouble("x2",540),(float)x.optDouble("y2",500),(long)x.optDouble("duration",600));break;}
+                case "scroll_repeat": {AgentAccessibilityService s=AgentAccessibilityService.getInstance(); if(s!=null){int n=Math.min(50,Math.max(1,x.optInt("count",10))); boolean fwd=!"back".equalsIgnoreCase(x.optString("direction")); for(int k=0;k<n;k++){if(!s.scroll(fwd))break; try{Thread.sleep(Math.min(800,Math.max(50,x.optInt("delay",250))));}catch(Exception ignored){}}}break;}
                 case "back": ActionEngine.back();break;
                 case "home": ActionEngine.home();break;
                 case "recents": ActionEngine.recents();break;
@@ -188,6 +212,14 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 case "copy": {android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("agent",x.optString("text")));break;}
             }
         }catch(Exception ignored){}
+    }
+
+    private void moveOverlay(String position){
+        if(overlayLp==null||wm==null||bar==null)return;
+        if("bottom".equalsIgnoreCase(position)||"למטה".equals(position)){ overlayLp.gravity=Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL; overlayLp.y=24; }
+        else if("top".equalsIgnoreCase(position)||"למעלה".equals(position)){ overlayLp.gravity=Gravity.TOP|Gravity.CENTER_HORIZONTAL; overlayLp.y=80; }
+        else { overlayLp.gravity=Gravity.TOP|Gravity.CENTER_HORIZONTAL; overlayLp.y=Math.max(8,overlayLp.y); }
+        try{wm.updateViewLayout(bar,overlayLp);}catch(Exception ignored){}
     }
 
     @Override public int onStartCommand(Intent i,int flags,int id){
