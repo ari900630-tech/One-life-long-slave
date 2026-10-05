@@ -49,7 +49,7 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
             requestPermissions();
             return;
         }
-        setIndicators("מיקרופון פעיל","מקשיב עכשיו...","ממתין");
+        setIndicators("מיקרופון פעיל","מקשיב עכשיו...","ממתין");\n        updateMicrophoneNotification("המיקרופון פועל — הסוכן מאזין");
         boolean started=voice.startListening();
         if(!started) startSystemVoiceFallback();
     }
@@ -63,7 +63,7 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
             i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,3);
             i.putExtra(RecognizerIntent.EXTRA_PROMPT,"דבר עכשיו");
             startActivityForResult(i,VOICE_REQUEST);
-            setIndicators("מיקרופון פעיל","מקשיב דרך שירות הקול של Android...","ממתין");
+            setIndicators("מיקרופון פעיל","מקשיב דרך שירות הקול של Android...","ממתין");\n            updateMicrophoneNotification("המיקרופון פועל — הסוכן מאזין");
         } catch(Exception e) {
             setIndicators("מיקרופון לא זמין","שירות זיהוי קול לא מותקן","יש להתקין/להפעיל Google או מנוע קול");
             status.setText("לא נמצא שירות זיהוי קול במכשיר");
@@ -110,7 +110,7 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
     @Override protected void onDestroy(){if(voice!=null)voice.destroy();super.onDestroy();}
 
     @Override public void onText(String text){
-        setIndicators("מיקרופון קלט קול","שמעתי: "+text,"מעבד עכשיו...");
+        setIndicators("מיקרופון קלט קול","שמעתי: "+text,"מעבד עכשיו...");\n        updateMicrophoneNotification("המיקרופון פעיל — מעבד את הדיבור");
         status.setText("הסוכן מבצע: "+text);
         ApiClient.chat(text,new ApiClient.Callback(){
             public void success(JSONObject result){runActions(result.optJSONArray("actions")); String reply=result.optString("reply","בוצע"); status.setText(reply); setIndicators("מיקרופון מוכן","הפקודה נקלטה","הסוכן משיב"); voice.speak(reply, MainActivity.this::startVoiceInput);}
@@ -121,12 +121,12 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
     @Override public void onState(String s){
         status.setText(s);
         if("מאזין...".equals(s)) setIndicators("מיקרופון פעיל","מקשיב עכשיו...","ממתין לתשובה");
-        else if("לא זוהה קול".equals(s)) setIndicators("מיקרופון פעיל","לא זוהה קול","לא נשלחה פקודה");
-        else if(s.contains("מנוע הדיבור")||s.contains("קול עברי")) setIndicators("מיקרופון לא זמין","לא זוהה קול","בעיה במנוע הקולי");
-        else if("מוכן".equals(s)) setIndicators("מיקרופון מוכן","ממתין לפקודה","מוכן");
+        else if("לא זוהה קול".equals(s)) { setIndicators("מיקרופון פעיל","לא זוהה קול","לא נשלחה פקודה"); updateMicrophoneNotification("המיקרופון פועל — לא זוהה קול"); }
+        else if(s.contains("מנוע הדיבור")||s.contains("קול עברי")) { setIndicators("מיקרופון לא זמין","לא זוהה קול","בעיה במנוע הקולי"); updateMicrophoneNotification("המיקרופון אינו פעיל — בעיה במנוע הקולי"); }
+        else if("מוכן".equals(s)) { setIndicators("מיקרופון מוכן","ממתין לפקודה","מוכן"); updateMicrophoneNotification("המיקרופון מוכן — אינו מקליט עכשיו"); }
     }
 
-    private void setIndicators(String a,String b,String c){
+    private void updateMicrophoneNotification(String text){\n        try {\n            Intent i=new Intent(this,FloatingAgentService.class);\n            i.setAction(FloatingAgentService.ACTION_UPDATE_NOTIFICATION);\n            i.putExtra("text",text);\n            if(android.os.Build.VERSION.SDK_INT>=26) startForegroundService(i); else startService(i);\n        } catch(Exception ignored) {}\n    }\n\n    private void setIndicators(String a,String b,String c){
         if(micIndicator!=null)micIndicator.setText("● "+a);
         if(heardIndicator!=null)heardIndicator.setText("● "+b);
         if(agentIndicator!=null)agentIndicator.setText("● "+c);
