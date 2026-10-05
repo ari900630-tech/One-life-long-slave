@@ -75,6 +75,32 @@ public class AgentAccessibilityService extends AccessibilityService {
         Path p=new Path();p.moveTo(x1,y1);p.lineTo(x2,y2);
         return dispatchGesture(new GestureDescription.Builder().addStroke(new GestureDescription.StrokeDescription(p,0,Math.max(100,duration))).build(),null,null);
     }
+    public String screenText(){
+        AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return "אין גישה למסך כרגע";
+        StringBuilder b=new StringBuilder(); collectText(root,b,0);
+        String s=b.toString().trim(); return s.length()>7000?s.substring(0,7000):s;
+    }
+    private void collectText(AccessibilityNodeInfo n,StringBuilder b,int depth){
+        if(n==null||depth>30)return;
+        CharSequence t=n.getText(),d=n.getContentDescription();
+        String a=t==null?"":t.toString().trim(),c=d==null?"":d.toString().trim();
+        if(!a.isEmpty())b.append(a).append(" | ");
+        if(!c.isEmpty()&&!c.equals(a))b.append(c).append(" | ");
+        for(int i=0;i<n.getChildCount();i++)collectText(n.getChild(i),b,depth+1);
+    }
+    public int clickRepeat(String text,int count,long delay){
+        int done=0,n=Math.max(1,Math.min(30,count));
+        for(int i=0;i<n;i++){if(clickContains(text))done++;try{Thread.sleep(Math.max(50,Math.min(1000,delay)));}catch(Exception ignored){}}
+        return done;
+    }
+    public boolean scrollUntilText(String text,boolean forward,int max,long delay){
+        int n=Math.max(1,Math.min(80,max));
+        for(int i=0;i<n;i++){if(clickContains(text))return true;if(!scroll(forward))break;try{Thread.sleep(Math.max(50,Math.min(1000,delay)));}catch(Exception ignored){}}
+        return clickContains(text);
+    }
+    public boolean screenshot(){
+        return android.os.Build.VERSION.SDK_INT>=30 && performGlobalAction(GLOBAL_ACTION_TAKE_SCREENSHOT);
+    }
     public boolean tap(float x,float y){
         if(android.os.Build.VERSION.SDK_INT<24)return false;
         Path p=new Path();p.moveTo(x,y);
