@@ -19,7 +19,7 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state); setContentView(R.layout.activity_main);
-        status=findViewById(R.id.status); micIndicator=findViewById(R.id.mic_indicator); heardIndicator=findViewById(R.id.heard_indicator); agentIndicator=findViewById(R.id.agent_indicator);
+        status=findViewById(R.id.status); findViewById(R.id.copy_error).setOnClickListener(v->copyCurrentError()); micIndicator=findViewById(R.id.mic_indicator); heardIndicator=findViewById(R.id.heard_indicator); agentIndicator=findViewById(R.id.agent_indicator);
         voice=new VoiceEngine(this,this);
 
         findViewById(R.id.enable).setOnClickListener(v->enableOverlay());
@@ -116,6 +116,10 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         else if(s.contains("מנוע הדיבור")||s.contains("קול עברי")) { setIndicators("מיקרופון לא זמין","לא זוהה קול","בעיה במנוע הקולי"); updateMicrophoneNotification("הקול אינו זמין — בדוק מנוע TTS"); }
         else if(s.startsWith("שגיאת מיקרופון:")) { setIndicators("מיקרופון לא זמין",s,"ההאזנה נעצרה"); updateMicrophoneNotification(s); }
         else if("מוכן".equals(s)) { setIndicators("מיקרופון מוכן","ממתין לפקודה","מוכן"); updateMicrophoneNotification("המיקרופון מוכן — אינו מקליט עכשיו"); }
+    }
+
+    private void copyCurrentError(){
+        try { android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE); cm.setPrimaryClip(android.content.ClipData.newPlainText("שגיאת הסוכן",status.getText().toString())); Toast.makeText(this,"השגיאה הועתקה",Toast.LENGTH_SHORT).show(); } catch(Exception e) { Toast.makeText(this,"לא ניתן להעתיק",Toast.LENGTH_SHORT).show(); }
     }
 
     private void updateMicrophoneNotification(String text){
