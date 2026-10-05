@@ -8,6 +8,7 @@ import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import java.util.ArrayList;
 import java.util.Locale;
+import android.speech.tts.UtteranceProgressListener;
 
 public class VoiceEngine implements RecognitionListener, TextToSpeech.OnInitListener {
     public interface Listener { void onText(String text); void onState(String state); }
@@ -18,11 +19,21 @@ public class VoiceEngine implements RecognitionListener, TextToSpeech.OnInitList
     private TextToSpeech tts;
     private boolean ttsReady = false;
     private String pendingSpeech;
+    private final java.util.Map<String, Runnable> speechCallbacks = new java.util.HashMap<>();
 
     public VoiceEngine(Context c, Listener l) {
         context = c.getApplicationContext();
         listener = l;
         tts = new TextToSpeech(context, this);
+        if (tts != null) tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+            @Override public void onStart(String utteranceId) { if (listener != null) listener.onState("הסוכן מדבר..."); }
+            @Override public void onDone(String utteranceId) {
+                if (listener != null) listener.onState("הסוכן סיים לדבר");
+                Runnable r = speechCallbacks.remove(utteranceId);
+                if (r != null) new android.os.Handler(android.os.Looper.getMainLooper()).post(r);
+            }
+            @Override public void onError(String utteranceId) { if (listener != null) listener.onState("שגיאה בהשמעה קולית"); speechCallbacks.remove(utteranceId); }
+        });
     }
 
     public boolean startListening() {
@@ -42,16 +53,21 @@ public class VoiceEngine implements RecognitionListener, TextToSpeech.OnInitList
         return true;
     }
 
-    public void speak(String text) {
+    public void speak(String text) { speak(text, null); }
+
+    public void speak(String text, final Runnable afterSpeech) {
         if (text == null || text.trim().isEmpty()) return;
         pendingSpeech = text.trim();
         if (!ttsReady || tts == null) return;
-        speakNow(pendingSpeech);
+        speakNow(pendingSpeech, afterSpeech);
         pendingSpeech = null;
     }
 
-    private void speakNow(String text) {
+    private void speakNow(String text) { speakNow(text, null); }
+
+    private void speakNow(String text, final Runnable afterSpeech) {
         if (tts == null || text == null || text.isEmpty()) return;
+        if (afterSpeech != null) speechCallbacks.put("agent-he", afterSpeech);
         int result = tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "agent-he");
         if (result == TextToSpeech.ERROR && listener != null) {
             listener.onState("שגיאה בהשמעה קולית");
