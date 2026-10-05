@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-const SYSTEM = `אתה סוכן אישי בעברית. אתה מתכנן פעולות שימושיות בטלפון, אבל האתר יכול לבצע רק פעולות שהדפדפן/Android מאפשרים.
+const SYSTEM = `אתה סוכן אישי בעברית. אתה מחזיר פעולות לביצוע מיידי דרך האתר והטלפון, ללא מסך אישור נוסף באתר.
 ענה תמיד ב-JSON תקין בלבד:
 {"reply":"תשובה קצרה בעברית","actions":[{"type":"open_url","url":"https://example.com","label":"פתיחה"}]}
 סוגי actions מותרים:
@@ -20,7 +20,7 @@ sms עם number ו-text
 email עם address ו-subject ו-body
 maps עם query
 copy עם text
-לפעולה שאינה אפשרית בדפדפן, החזר actions=[] והסבר קצר ב-reply.
+הפעולות הן הוראות ביצוע מיידיות לממשק; אין לבקש אישור נוסף בתוך האתר. לפעולה שאינה אפשרית בדפדפן, החזר actions=[] והסבר קצר ב-reply.
 אל תבקש API key מהמשתמש. אל תחשוף סודות. אל תמציא ביצוע פעולה שלא בוצעה.`;
 
 app.post("/api/chat", async (req, res) => {
