@@ -17,6 +17,7 @@ public class MainActivity extends Activity {
 
         TextView status = findViewById(R.id.status);
         Button enable = findViewById(R.id.enable);
+        enable.setOnLongClickListener(v -> { startActivity(new Intent("android.settings.ACCESSIBILITY_SETTINGS")); return true; });
 
         enable.setOnClickListener(v -> {
             if (!Settings.canDrawOverlays(this)) {
