@@ -7,12 +7,14 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.speech.RecognizerIntent;
 import android.widget.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.util.ArrayList;
 
 public class MainActivity extends Activity implements VoiceEngine.Listener {
-    private static final int OVERLAY_REQUEST=1001, PERM_REQUEST=1002;
+    private static final int OVERLAY_REQUEST=1001, PERM_REQUEST=1002, VOICE_REQUEST=1003;
     private TextView status; private TextView micIndicator, heardIndicator, agentIndicator; private VoiceEngine voice;
 
     @Override public void onCreate(Bundle state){
@@ -25,37 +27,106 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         findViewById(R.id.accessibility).setOnClickListener(v->openAccessibility());
         findViewById(R.id.notifications).setOnClickListener(v->openNotificationSettings());
         findViewById(R.id.permissions).setOnClickListener(v->requestPermissions());
-        findViewById(R.id.talk).setOnClickListener(v->{ if(!has(Manifest.permission.RECORD_AUDIO)){requestPermissions();return;} setIndicators("מיקרופון פעיל","מקשיב עכשיו...","ממתין"); boolean started=voice.startListening(); if(!started)setIndicators("מיקרופון לא זמין","לא נשמע קול","לא התחיל"); });
+        findViewById(R.id.talk).setOnClickListener(v->startVoiceInput());
         updateStatus();
     }
+
     private boolean has(String p){return android.os.Build.VERSION.SDK_INT<23||checkSelfPermission(p)==PackageManager.PERMISSION_GRANTED;}
+
     private void requestPermissions(){
         if(android.os.Build.VERSION.SDK_INT<23)return;
         requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO,Manifest.permission.CAMERA,Manifest.permission.READ_CONTACTS,Manifest.permission.CALL_PHONE,Manifest.permission.SEND_SMS},PERM_REQUEST);
     }
+
+    private void startVoiceInput(){
+        if(!has(Manifest.permission.RECORD_AUDIO)){
+            setIndicators("נדרשת הרשאת מיקרופון","לא ניתן להאזין","פתח הרשאות");
+            requestPermissions();
+            return;
+        }
+        setIndicators("מיקרופון פעיל","מקשיב עכשיו...","ממתין");
+        boolean started=voice.startListening();
+        if(!started) startSystemVoiceFallback();
+    }
+
+    private void startSystemVoiceFallback(){
+        try {
+            Intent i=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE,"he-IL");
+            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE,"he-IL");
+            i.putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE,false);
+            i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,3);
+            i.putExtra(RecognizerIntent.EXTRA_PROMPT,"דבר עכשיו");
+            startActivityForResult(i,VOICE_REQUEST);
+            setIndicators("מיקרופון פעיל","מקשיב דרך שירות הקול של Android...","ממתין");
+        } catch(Exception e) {
+            setIndicators("מיקרופון לא זמין","שירות זיהוי קול לא מותקן","יש להתקין/להפעיל Google או מנוע קול");
+            status.setText("לא נמצא שירות זיהוי קול במכשיר");
+        }
+    }
+
     private void enableOverlay(){
         if(!Settings.canDrawOverlays(this)){
             startActivityForResult(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:"+getPackageName())),OVERLAY_REQUEST);
         }else startFloating();
     }
+
     private void startFloating(){
         Intent i=new Intent(this,FloatingAgentService.class);
         if(android.os.Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);
         status.setText("הסוכן הצף פעיל");
     }
+
     private void openAccessibility(){try{startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));}catch(Exception ignored){}}
     private void openNotificationSettings(){try{startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));}catch(Exception ignored){}}
+
     private void updateStatus(){
         status.setText(Settings.canDrawOverlays(this)?"הסוכן מוכן. הפעל שליטה במסך והרשאות לפי הצורך.":"יש להפעיל הרשאת חלון צף.");
         if(Settings.canDrawOverlays(this))startFloating();
     }
-    @Override protected void onActivityResult(int r,int c,Intent d){super.onActivityResult(r,c,d);if(r==OVERLAY_REQUEST&&Settings.canDrawOverlays(this))startFloating();}
+
+    @Override protected void onActivityResult(int r,int c,Intent d){
+        super.onActivityResult(r,c,d);
+        if(r==OVERLAY_REQUEST&&Settings.canDrawOverlays(this))startFloating();
+        if(r==VOICE_REQUEST){
+            if(c==RESULT_OK&&d!=null){
+                ArrayList<String> results=d.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                if(results!=null&&!results.isEmpty()){
+                    onText(results.get(0));
+                }else{
+                    setIndicators("מיקרופון פעיל","לא זוהה קול","לא נשלחה פקודה");
+                }
+            }else{
+                setIndicators("מיקרופון מוכן","ההאזנה בוטלה","ממתין לפקודה");
+            }
+        }
+    }
+
     @Override protected void onDestroy(){if(voice!=null)voice.destroy();super.onDestroy();}
-    @Override public void onText(String text){setIndicators("מיקרופון קלט קול","שמעתי: "+text,"מעבד עכשיו..."); status.setText("הסוכן מבצע: "+text); ApiClient.chat(text,new ApiClient.Callback(){
-        public void success(JSONObject result){runActions(result.optJSONArray("actions")); String reply=result.optString("reply","בוצע"); status.setText(reply); setIndicators("מיקרופון מוכן","הפקודה נקלטה","הסוכן משיב"); voice.speak(reply);}
-        public void error(String message){status.setText(message); setIndicators("מיקרופון מוכן","הפקודה נקלטה","שגיאה: "+message); voice.speak(message);}
-    });}
-    @Override public void onState(String s){status.setText(s); if("מאזין...".equals(s)) setIndicators("מיקרופון פעיל","מקשיב עכשיו...","ממתין לתשובה"); else if("לא זוהה קול".equals(s)) setIndicators("מיקרופון פעיל","לא זוהה קול","לא נשלחה פקודה"); else if(s.contains("מנוע הדיבור")||s.contains("קול עברי")) setIndicators("מיקרופון לא זמין","לא זוהה קול","בעיה במנוע הקולי"); else if("מוכן".equals(s)) setIndicators("מיקרופון מוכן","ממתין לפקודה","מוכן");} private void setIndicators(String a,String b,String c){if(micIndicator!=null)micIndicator.setText("● "+a);if(heardIndicator!=null)heardIndicator.setText("● "+b);if(agentIndicator!=null)agentIndicator.setText("● "+c);}
+
+    @Override public void onText(String text){
+        setIndicators("מיקרופון קלט קול","שמעתי: "+text,"מעבד עכשיו...");
+        status.setText("הסוכן מבצע: "+text);
+        ApiClient.chat(text,new ApiClient.Callback(){
+            public void success(JSONObject result){runActions(result.optJSONArray("actions")); String reply=result.optString("reply","בוצע"); status.setText(reply); setIndicators("מיקרופון מוכן","הפקודה נקלטה","הסוכן משיב"); voice.speak(reply);}
+            public void error(String message){status.setText(message); setIndicators("מיקרופון מוכן","הפקודה נקלטה","שגיאה: "+message); voice.speak(message);}
+        });
+    }
+
+    @Override public void onState(String s){
+        status.setText(s);
+        if("מאזין...".equals(s)) setIndicators("מיקרופון פעיל","מקשיב עכשיו...","ממתין לתשובה");
+        else if("לא זוהה קול".equals(s)) setIndicators("מיקרופון פעיל","לא זוהה קול","לא נשלחה פקודה");
+        else if(s.contains("מנוע הדיבור")||s.contains("קול עברי")) setIndicators("מיקרופון לא זמין","לא זוהה קול","בעיה במנוע הקולי");
+        else if("מוכן".equals(s)) setIndicators("מיקרופון מוכן","ממתין לפקודה","מוכן");
+    }
+
+    private void setIndicators(String a,String b,String c){
+        if(micIndicator!=null)micIndicator.setText("● "+a);
+        if(heardIndicator!=null)heardIndicator.setText("● "+b);
+        if(agentIndicator!=null)agentIndicator.setText("● "+c);
+    }
+
     private void runActions(JSONArray a){
         if(a==null)return;
         for(int i=0;i<a.length();i++)try{
