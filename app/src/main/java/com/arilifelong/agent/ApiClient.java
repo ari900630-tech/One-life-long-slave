@@ -10,7 +10,7 @@ import java.net.URL;
 
 public final class ApiClient {
     public interface Callback { void success(JSONObject result); void error(String message); }
-    private static final String DEFAULT_BASE="https://phone-agent.onrender.com";
+    private static final String DEFAULT_BASE="https://one-life-long-slave.onrender.com";
     private ApiClient(){}
 
     public static void chat(final String text, final Callback cb){
