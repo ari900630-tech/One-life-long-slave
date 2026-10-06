@@ -11,7 +11,9 @@ import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
-import java.util.Locale;\nimport org.json.JSONArray;\nimport org.json.JSONObject;
+import java.util.Locale;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class AgentAccessibilityService extends AccessibilityService {
     private static AgentAccessibilityService instance;
