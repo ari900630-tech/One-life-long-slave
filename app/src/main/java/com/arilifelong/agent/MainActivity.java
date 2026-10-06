@@ -94,6 +94,42 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         }
     }
 
+    private boolean handleSuggestionRequest(String text){
+        String q=text==null?"":text.trim();
+        String l=q.toLowerCase(java.util.Locale.ROOT);
+        if(!(l.contains("מה אני יכול לעשות")||l.contains("מה אפשר לעשות")||l.contains("איזה אפשרויות")||l.contains("אפשרויות כאן")||l.contains("תציע לי")))return false;
+        AgentAccessibilityService a=AgentAccessibilityService.getInstance();
+        if(a==null){voice.speak("צריך להפעיל הרשאת שליטה במסך.",MainActivity.this::startVoiceInput);return true;}
+        pendingSuggestions=a.suggestionActions();
+        if(pendingSuggestions.length()==0){voice.speak("אני לא מזהה כרגע פעולות ברורות במסך.",MainActivity.this::startVoiceInput);return true;}
+        StringBuilder b=new StringBuilder("האפשרויות שאני ממליץ עליהן הן: ");
+        for(int i=0;i<pendingSuggestions.length();i++)try{b.append(i+1).append(". ").append(pendingSuggestions.getJSONObject(i).optString("label")).append(". ");}catch(Exception ignored){}
+        voice.speak(b.toString(),MainActivity.this::startVoiceInput);
+        return true;
+    }
+
+    private boolean handleSuggestionCommand(String text){
+        if(pendingSuggestions==null||pendingSuggestions.length()==0)return false;
+        String q=(text==null?"":text.trim()).toLowerCase(java.util.Locale.ROOT);
+        int n=-1;
+        if(q.contains("אחד")||q.contains("ראשונה")||q.equals("1"))n=1;
+        else if(q.contains("שניים")||q.contains("שתיים")||q.contains("שנייה")||q.equals("2"))n=2;
+        else if(q.contains("שלוש")||q.contains("שלושה")||q.contains("שלישית")||q.equals("3"))n=3;
+        else if(q.contains("ארבע")||q.contains("ארבעה")||q.contains("רביעית")||q.equals("4"))n=4;
+        else if(q.contains("חמש")||q.contains("חמישה")||q.contains("חמישית")||q.equals("5"))n=5;
+        else if(q.contains("שש")||q.contains("שישית")||q.equals("6"))n=6;
+        else if(q.contains("שבע")||q.contains("שבעה")||q.contains("שביעית")||q.equals("7"))n=7;
+        if(n<1||n>pendingSuggestions.length())return false;
+        try{
+            JSONObject chosen=pendingSuggestions.getJSONObject(n-1);
+            JSONArray one=new JSONArray(); one.put(chosen);
+            pendingSuggestions=null;
+            runActions(one);
+            voice.speak("מבצע את אפשרות "+n+".",MainActivity.this::startVoiceInput);
+        }catch(Exception e){voice.speak("לא הצלחתי לבצע את האפשרות.",MainActivity.this::startVoiceInput);}
+        return true;
+    }
+
     @Override protected void onDestroy(){if(voice!=null)voice.destroy();super.onDestroy();}
 
     @Override public void onText(String text){
