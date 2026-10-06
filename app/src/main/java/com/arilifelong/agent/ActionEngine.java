@@ -16,10 +16,40 @@ public final class ActionEngine {
     }
     public static boolean openApp(Context c,String pkg){
         try {
-            Intent i=c.getPackageManager().getLaunchIntentForPackage(pkg);
+            String resolved=resolvePackage(c,pkg);
+            if(resolved==null||resolved.isEmpty())return false;
+            Intent i=c.getPackageManager().getLaunchIntentForPackage(resolved);
             if(i==null)return false;
-            c.startActivity(ready(c,i)); return true;
+            i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            c.startActivity(ready(c,i));
+            return waitForAccessibilityWindow(1800);
         } catch(Exception e){ return false; }
+    }
+    private static String resolvePackage(Context c,String value){
+        String v=value==null?"":value.trim();
+        if(v.isEmpty())return null;
+        if(c.getPackageManager().getLaunchIntentForPackage(v)!=null)return v;
+        String l=v.toLowerCase(Locale.ROOT);
+        if(l.contains("instagram")||l.contains("אינסטגרם"))return "com.instagram.android";
+        if(l.contains("whatsapp")||l.contains("וואטסאפ"))return "com.whatsapp";
+        if(l.contains("telegram")||l.contains("טלגרם"))return "org.telegram.messenger";
+        if(l.contains("youtube")||l.contains("יוטיוב"))return "com.google.android.youtube";
+        for(android.content.pm.ApplicationInfo info:c.getPackageManager().getInstalledApplications(PackageManager.GET_META_DATA)){
+            try{
+                String label=c.getPackageManager().getApplicationLabel(info).toString().toLowerCase(Locale.ROOT);
+                if(label.equals(l)||label.contains(l)||l.contains(label))return info.packageName;
+            }catch(Exception ignored){}
+        }
+        return null;
+    }
+    private static boolean waitForAccessibilityWindow(long timeoutMs){
+        long end=System.currentTimeMillis()+timeoutMs;
+        while(System.currentTimeMillis()<end){
+            AgentAccessibilityService s=AgentAccessibilityService.getInstance();
+            if(s!=null&&s.getRootInActiveWindow()!=null)return true;
+            try{Thread.sleep(100);}catch(InterruptedException e){Thread.currentThread().interrupt();break;}
+        }
+        return false;
     }
     public static boolean dial(Context c,String number){
         try { c.startActivity(ready(c,new Intent(Intent.ACTION_DIAL,Uri.parse("tel:"+Uri.encode(number))))); return true; } catch(Exception e){ return false; }
@@ -48,7 +78,7 @@ public final class ActionEngine {
         try { c.startActivity(ready(c,new Intent("android.media.action.IMAGE_CAPTURE"))); return true; } catch(Exception e){ return false; }
     }
     public static boolean settings(Context c){
-        try { c.startActivity(ready(c,new Intent(Settings.ACTION_SETTINGS))); return true; } catch(Exception e){ return false; }
+        try { c.startActivity(ready(c,new Intent(Settings.ACTION_SETTINGS))); return waitForAccessibilityWindow(1800); } catch(Exception e){ return false; }
     }
     public static boolean appSettings(Context c,String pkg){
         try { c.startActivity(ready(c,new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+pkg)))); return true; } catch(Exception e){ return false; }
@@ -80,7 +110,7 @@ public final class ActionEngine {
             else if(a.contains("battery"))i=new Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS);
             else if(a.contains("apps"))i=new Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS);
             else i=new Intent(Settings.ACTION_SETTINGS);
-            c.startActivity(ready(c,i));return true;
+            c.startActivity(ready(c,i));return waitForAccessibilityWindow(1800);
         }catch(Exception e){return false;}
     }
     public static boolean notifications(Context c){
