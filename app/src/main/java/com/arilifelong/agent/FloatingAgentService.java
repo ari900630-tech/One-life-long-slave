@@ -24,9 +24,24 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     private final BroadcastReceiver screenReceiver=new BroadcastReceiver(){
         @Override public void onReceive(Context context,Intent intent){
             if(intent==null)return;
-            String d=intent.getStringExtra("description");
-            if(d==null||d.trim().isEmpty())return;
-            if(voice!=null) voice.speak("אני רואה: "+d.trim(),null);
+            String s=intent.getStringExtra("suggestions");
+            if(s==null||s.trim().isEmpty())return;
+            try{
+                JSONArray a=new JSONArray(s);
+                StringBuilder b=new StringBuilder("במסך הזה אני יכול ");
+                int added=0;
+                for(int j=0;j<a.length()&&added<6;j++){
+                    JSONObject x=a.optJSONObject(j);
+                    if(x==null)continue;
+                    String label=x.optString("label","").trim();
+                    if(label.isEmpty())continue;
+                    if(added>0)b.append(", ");
+                    b.append(label);
+                    added++;
+                }
+                if(added>0&&voice!=null) voice.speak(b.toString()+". תגיד לי מה לעשות ואני אבצע.",null);
+            }catch(Exception ignored){}
+        }
         }
     };
 
