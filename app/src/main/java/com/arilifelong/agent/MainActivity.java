@@ -244,6 +244,9 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
                 case "system_action": ok=ActionEngine.systemAction(this,x.optString("action"));break;
                 case "copy": {android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("agent",x.optString("text")));ok=true;break;}
             }
-        }catch(Exception ignored){}
+            if(ok)result.succeeded++; else result.failed++;
+        }catch(Exception ignored){result.failed++;}
+        }
+        return result;
     }
 }
