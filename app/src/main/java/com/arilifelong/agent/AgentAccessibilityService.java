@@ -17,6 +17,8 @@ public class AgentAccessibilityService extends AccessibilityService {
     private static AgentAccessibilityService instance;
     private final List<String> diagnostics = new ArrayList<>();
     private final Handler handler = new Handler();
+    private String lastAnnouncedScreen="";
+    private long lastAnnouncedAt=0;
     public static AgentAccessibilityService getInstance(){ return instance; }
 
     @Override public void onServiceConnected(){ super.onServiceConnected(); instance=this; loadDiagnostics(); }
@@ -30,7 +32,35 @@ public class AgentAccessibilityService extends AccessibilityService {
     }
     private String joinDiagnostics(){ StringBuilder b=new StringBuilder(); for(String x:diagnostics){if(b.length()>0)b.append("\\n");b.append(x);} return b.toString(); }
     public List<String> diagnosticsSnapshot(){ return new ArrayList<>(diagnostics.subList(Math.max(0,diagnostics.size()-20),diagnostics.size())); }
-    @Override public void onAccessibilityEvent(AccessibilityEvent event){}
+    @Override public void onAccessibilityEvent(AccessibilityEvent event){
+        if(event==null)return;
+        int t=event.getEventType();
+        if(t!=AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && t!=AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)return;
+        if(t==AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && System.currentTimeMillis()-lastAnnouncedAt<1200)return;
+        announceScreenIfChanged();
+    }
+    private void announceScreenIfChanged(){
+        AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return;
+        String pkg=root.getPackageName()==null?"":root.getPackageName().toString();
+        if(pkg.equals(getPackageName()))return;
+        StringBuilder b=new StringBuilder(pkg);
+        collectVisibleDescription(root,b);
+        String description=b.toString();
+        if(description.equals(lastAnnouncedScreen)||description.length()<4)return;
+        lastAnnouncedScreen=description; lastAnnouncedAt=System.currentTimeMillis();
+        Intent i=new Intent("com.arilifelong.agent.SCREEN_CHANGED");
+        i.setPackage(getPackageName());
+        i.putExtra("description",description);
+        i.putExtra("suggestions",suggestionActions().toString());
+        sendBroadcast(i);
+    }
+    private void collectVisibleDescription(AccessibilityNodeInfo n,StringBuilder b){
+        if(n==null||b.length()>1800)return;
+        CharSequence t=n.getText(),d=n.getContentDescription();
+        String label=t!=null?t.toString().trim():(d!=null?d.toString().trim():"");
+        if(!label.isEmpty()&&label.length()<=100&&!label.equals("✦"))b.append(" | ").append(label);
+        for(int i=0;i<n.getChildCount()&&b.length()<1800;i++)collectVisibleDescription(n.getChild(i),b);
+    }
     @Override public void onInterrupt(){}
     @Override public void onDestroy(){ if(instance==this)instance=null; super.onDestroy(); }
 
