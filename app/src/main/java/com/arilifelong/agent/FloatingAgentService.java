@@ -237,24 +237,12 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             else voice.speak("לא הצלחתי לפתוח את אינסטגרם. בדוק שהאפליקציה מותקנת.",FloatingAgentService.this::startVoiceInput);
             return;
         }
+        // ביצוע אוטומטי: אין שלב אישור. הפקודה שהמשתמש אמר מבוצעת מיד.
         if(waitingForConfirmation&&pendingActions!=null){
-            if(isYes(text)){
-                JSONArray a=pendingActions;
-                pendingActions=null; waitingForConfirmation=false;
-                setMode("⚙  מבצע…","מבצע את מה שאישרת");
-                ActionResult ar=runActions(a);
-                String reply=ar.failed==0?"":(ar.succeeded==0?"לא הצלחתי לבצע את הפעולה.":"לא הצלחתי לבצע את כל הפעולה.");
-                if(ar.failed==0){ setMode("●  שומע…","מוכן לפקודה הבאה"); startVoiceInput(); }
-                else { setMode("⚠  לא הצלחתי","אפשר לנסות שוב"); voice.speak("לא הצלחתי לבצע את זה. מה תרצה שאנסה עכשיו?",FloatingAgentService.this::startVoiceInput); }
-                return;
-            }
-            if(!isNo(text)){
-                voice.speak("אמור כן כדי לאשר, או לא כדי לתקן אותי.",FloatingAgentService.this::startVoiceInput);
-                return;
-            }
-            pendingActions=null; waitingForConfirmation=false;
+            pendingActions=null;
+            waitingForConfirmation=false;
         }
-        setMode("⚙  בודק…","בודק את הבקשה שלך");
+        setMode("⚙  מבצע…","מבצע את הבקשה שלך");
         ApiClient.chat(text,new ApiClient.Callback(){
             @Override public void success(JSONObject result){
                 JSONArray actions=result.optJSONArray("actions");
