@@ -145,6 +145,14 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         bar=root;
     }
 
+    private void showErrorCopy(String error,String command){
+        if(bar==null)return;
+        final String log="ERROR: "+error+"\nCOMMAND: "+command+"\nTIME: "+System.currentTimeMillis();
+        Button copy=new Button(this); copy.setText("העתק לוג"); copy.setAllCaps(false); copy.setTextSize(11);
+        copy.setOnClickListener(v->{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("Agent error log",log));copy.setText("הועתק");});
+        try { ((LinearLayout)bar).addView(copy,Math.max(0,((LinearLayout)bar).getChildCount()-1),new LinearLayout.LayoutParams(95,52)); } catch(Exception ignored){}
+    }
+
     private void setMode(String button,String state){
         if(talk!=null){
             talk.setText(button);
@@ -211,9 +219,9 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 pendingActions=null; waitingForConfirmation=false;
                 setMode("⚙  מבצע…","מבצע את מה שאישרת");
                 ActionResult ar=runActions(a);
-                String reply=ar.failed==0?"בוצע.":(ar.succeeded==0?"לא הצלחתי לבצע את הפעולה.":"בוצע חלקית.");
-                setMode(ar.failed==0?"✓  בוצע":"⚠  חלקית",reply);
-                voice.speak(reply,FloatingAgentService.this::startVoiceInput);
+                String reply=ar.failed==0?"":(ar.succeeded==0?"לא הצלחתי לבצע את הפעולה.":"לא הצלחתי לבצע את כל הפעולה.");
+                if(ar.failed==0){ setMode("●  שומע…","מוכן לפקודה הבאה"); startVoiceInput(); }
+                else { setMode("⚠  לא הצלחתי","אפשר לנסות שוב"); voice.speak("לא הצלחתי לבצע את זה. מה תרצה שאנסה עכשיו?",FloatingAgentService.this::startVoiceInput); }
                 return;
             }
             if(!isNo(text)){
@@ -236,8 +244,9 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 voice.speak(msg,FloatingAgentService.this::startVoiceInput);
             }
             @Override public void error(String message){
-                setMode("⚠  שגיאה","שגיאה");
-                voice.speak(message,FloatingAgentService.this::startVoiceInput);
+                setMode("⚠  לא הצלחתי","יש שגיאה — אפשר להעתיק את הלוג");
+                showErrorCopy(message,text);
+                voice.speak("לא הצלחתי לבצע את זה. מה תרצה שאעשה עכשיו?",FloatingAgentService.this::startVoiceInput);
             }
         });
     }
