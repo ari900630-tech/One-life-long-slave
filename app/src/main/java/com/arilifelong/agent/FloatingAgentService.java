@@ -171,9 +171,14 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         setMode("⚙  מבצע…","מבצע: "+text);
         ApiClient.chat(text,new ApiClient.Callback(){
             @Override public void success(JSONObject result){
-                runActions(result.optJSONArray("actions"));
-                String reply=result.optString("reply","בוצע");
-                setMode("✓  בוצע","בוצע");
+                JSONArray actions=result.optJSONArray("actions");
+                ActionResult ar=runActions(actions);
+                String reply;
+                if(ar.total==0) reply=result.optString("reply","אני כאן. מה תרצה שאעשה?");
+                else if(ar.failed==0) reply=actions.length()==1 ? "בסדר, בוצע." : "בסדר, ביצעתי את הפעולות שביקשת.";
+                else if(ar.succeeded==0) reply="לא הצלחתי לבצע את הבקשה. הסבר לי שוב מה רצית שאעשה ואנסה בדרך אחרת.";
+                else reply="ביצעתי חלק מהבקשה, אבל פעולה אחת או יותר לא הצליחו. הסבר לי מה תרצה שאנסה שוב.";
+                setMode(ar.failed==0?"✓  בוצע":"⚠  חלקית",ar.failed==0?"בוצע":"לא הכול הצליח");
                 voice.speak(reply, FloatingAgentService.this::startVoiceInput);
             }
             @Override public void error(String message){
@@ -190,8 +195,11 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         else if(s.startsWith("שגיאת"))setMode("🎙  דבר",s);
     }
 
-    private void runActions(JSONArray actions){
-        if(actions==null)return;
+    private static class ActionResult { int total; int succeeded; int failed; }
+    private ActionResult runActions(JSONArray actions){
+        ActionResult result=new ActionResult();
+        if(actions==null)return result;
+        result.total=actions.length();
         for(int i=0;i<actions.length();i++)try{
             setMode("⚙ "+(i+1)+"/"+actions.length(),"מבצע שלב "+(i+1)+" מתוך "+actions.length());
             JSONObject x=actions.getJSONObject(i); String t=x.optString("type");
@@ -261,7 +269,9 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 case "chrome_clear_search": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();if(svc!=null)svc.chromeClearSearch();break;}
                 case "copy": {android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("agent",x.optString("text")));break;}
             }
-        }catch(Exception ignored){}
+            // פעולה שלא מחזירה boolean מסומנת כהצלחה אם לא נזרקה חריגה.
+            result.succeeded++;
+        }catch(Exception ignored){result.failed++;}
     }
 
     private void moveOverlay(String position){
