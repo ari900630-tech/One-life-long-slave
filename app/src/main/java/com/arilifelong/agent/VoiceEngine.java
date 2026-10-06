@@ -117,7 +117,7 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
                 if(rms>=SPEECH_RMS){
                     if(speechAt==0)speechAt=now;
                     lastSpeech=now;
-                    if(listener!=null)listener.onState("שומע אותך...");
+                    if(listener!=null)listener.onState("מקשיב...");
                 }else if(speechAt>0 && now-lastSpeech>=END_SILENCE_MS){
                     break;
                 }else if(speechAt==0 && now-started>=INITIAL_SILENCE_MS){
