@@ -11,7 +11,7 @@ import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
-import java.util.Locale;
+import java.util.Locale;\nimport org.json.JSONArray;\nimport org.json.JSONObject;
 
 public class AgentAccessibilityService extends AccessibilityService {
     private static AgentAccessibilityService instance;
@@ -159,6 +159,34 @@ public class AgentAccessibilityService extends AccessibilityService {
         if(n.isEditable())return n;
         for(int i=0;i<n.getChildCount();i++){AccessibilityNodeInfo f=findEditable(n.getChild(i));if(f!=null)return f;}
         return null;
+    }
+    public JSONArray suggestionActions(){
+        JSONArray out=new JSONArray();
+        AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return out;
+        String pkg=root.getPackageName()==null?"":root.getPackageName().toString();
+        if(pkg.equals("com.android.chrome")){
+            addSuggestion(out,"chrome_clear_search","מחק את החיפוש/הטקסט הקיים");
+            addSuggestion(out,"chrome_new_tab","פתח כרטיסייה חדשה");
+            addSuggestion(out,"back","חזור לדף הקודם");
+            addSuggestion(out,"scroll","גלול במסך");
+        }
+        collectSuggestions(root,out);
+        return out;
+    }
+    private void addSuggestion(JSONArray a,String type,String label){
+        for(int i=0;i<a.length();i++)try{if(a.getJSONObject(i).optString("type").equals(type))return;}catch(Exception ignored){}
+        JSONObject o=new JSONObject();try{o.put("type",type);o.put("label",label);a.put(o);}catch(Exception ignored){}
+    }
+    private void collectSuggestions(AccessibilityNodeInfo n,JSONArray out){
+        if(n==null||out.length()>=7)return;
+        if(n.isEditable()){addSuggestion(out,"type_text","הקלד טקסט בשדה הנוכחי");}
+        if(n.isClickable()){
+            String t=n.getText()==null?"":n.getText().toString().trim();
+            String d=n.getContentDescription()==null?"":n.getContentDescription().toString().trim();
+            String label=!t.isEmpty()?t:d;
+            if(!label.isEmpty()&&label.length()<=50&&!label.equals("✦"))addSuggestion(out,"click_text",label);
+        }
+        for(int i=0;i<n.getChildCount()&&out.length()<7;i++)collectSuggestions(n.getChild(i),out);
     }
     public boolean chromeNewTab(){ return clickTextOrDescription("New tab|כרטיסייה חדשה|כרטיסיה חדשה|פתח כרטיסייה|New Tab"); }
     public boolean chromeCloseTab(){ return clickTextOrDescription("Close tab|סגור כרטיסייה|סגור כרטיסיה|Close"); }
