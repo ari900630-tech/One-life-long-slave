@@ -55,7 +55,7 @@ public class AgentAccessibilityService extends AccessibilityService {
         lastAnnouncedScreen=description; lastAnnouncedAt=System.currentTimeMillis();
         Intent i=new Intent("com.arilifelong.agent.SCREEN_CHANGED");
         i.setPackage(getPackageName());
-        // Do not expose or speak the visible screen contents. Send only actionable capabilities.
+        // Do not expose or speak visible screen contents; announce only actionable capabilities.
         i.putExtra("suggestions",suggestionActions().toString());
         sendBroadcast(i);
     }
