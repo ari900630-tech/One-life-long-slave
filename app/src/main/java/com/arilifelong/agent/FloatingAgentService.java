@@ -167,23 +167,77 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         voice.startListening();
     }
 
+    private JSONArray pendingActions;
+    private boolean waitingForConfirmation=false;
+
+    private boolean isYes(String t){
+        String s=t==null?"":t.trim().toLowerCase();
+        return s.equals("כן")||s.equals("אשר")||s.equals("אישור")||s.equals("בצע")||s.equals("תבצע")||s.equals("yes");
+    }
+
+    private boolean isNo(String t){
+        String s=t==null?"":t.trim().toLowerCase();
+        return s.equals("לא")||s.startsWith("לא,")||s.contains("תיקון")||s.contains("לא התכוונתי");
+    }
+
+    private String understood(JSONArray a){
+        if(a==null||a.length()==0)return "שאין פעולה לביצוע";
+        StringBuilder b=new StringBuilder();
+        for(int i=0;i<a.length();i++){
+            JSONObject x=a.optJSONObject(i);
+            if(x==null)continue;
+            if(i>0)b.append(", ואז ");
+            String t=x.optString("type");
+            if("open_app".equals(t))b.append("לפתוח אפליקציה");
+            else if("open_url".equals(t))b.append("לפתוח אתר");
+            else if("sms".equals(t))b.append("לשלוח הודעה");
+            else if("call".equals(t)||"dial".equals(t))b.append("להתקשר");
+            else if("settings".equals(t)||"app_settings".equals(t))b.append("לפתוח הגדרות");
+            else if("move_overlay".equals(t)||"move_overlay_xy".equals(t))b.append("להזיז את החלון הצף");
+            else if("scroll".equals(t)||"scroll_repeat".equals(t)||"scroll_until_text".equals(t))b.append("לגלול");
+            else if("tap".equals(t)||"click_text".equals(t))b.append("ללחוץ");
+            else if("back".equals(t))b.append("לחזור אחורה");
+            else if("home".equals(t))b.append("לעבור למסך הבית");
+            else b.append("לבצע ").append(t);
+        }
+        return b.toString();
+    }
+
     @Override public void onText(String text){
-        setMode("⚙  מבצע…","מבצע: "+text);
+        if(text==null||text.trim().isEmpty())return;
+        if(waitingForConfirmation&&pendingActions!=null){
+            if(isYes(text)){
+                JSONArray a=pendingActions;
+                pendingActions=null; waitingForConfirmation=false;
+                setMode("⚙  מבצע…","מבצע את מה שאישרת");
+                ActionResult ar=runActions(a);
+                String reply=ar.failed==0?"בוצע.":(ar.succeeded==0?"לא הצלחתי לבצע את הפעולה.":"בוצע חלקית.");
+                setMode(ar.failed==0?"✓  בוצע":"⚠  חלקית",reply);
+                voice.speak(reply,FloatingAgentService.this::startVoiceInput);
+                return;
+            }
+            if(!isNo(text)){
+                voice.speak("אמור כן כדי לאשר, או לא כדי לתקן אותי.",FloatingAgentService.this::startVoiceInput);
+                return;
+            }
+            pendingActions=null; waitingForConfirmation=false;
+        }
+        setMode("⚙  בודק…","בודק את הבקשה שלך");
         ApiClient.chat(text,new ApiClient.Callback(){
             @Override public void success(JSONObject result){
                 JSONArray actions=result.optJSONArray("actions");
-                ActionResult ar=runActions(actions);
-                String reply;
-                if(ar.total==0) reply=result.optString("reply","אני כאן. מה תרצה שאעשה?");
-                else if(ar.failed==0) reply=actions.length()==1 ? "בסדר, בוצע." : "בסדר, ביצעתי את הפעולות שביקשת.";
-                else if(ar.succeeded==0) reply="לא הצלחתי לבצע את הבקשה. הסבר לי שוב מה רצית שאעשה ואנסה בדרך אחרת.";
-                else reply="ביצעתי חלק מהבקשה, אבל פעולה אחת או יותר לא הצליחו. הסבר לי מה תרצה שאנסה שוב.";
-                setMode(ar.failed==0?"✓  בוצע":"⚠  חלקית",ar.failed==0?"בוצע":"לא הכול הצליח");
-                voice.speak(reply, FloatingAgentService.this::startVoiceInput);
+                if(actions==null||actions.length()==0){
+                    voice.speak(result.optString("reply","לא זיהיתי פעולה לביצוע."),FloatingAgentService.this::startVoiceInput);
+                    return;
+                }
+                pendingActions=actions; waitingForConfirmation=true;
+                String msg="הבנתי שאתה רוצה "+understood(actions)+". אם זה נכון אמור כן. אם לא, אמור לא ואז תקן אותי.";
+                setMode("⏳  ממתין לאישור","מחכה לאישור שלך");
+                voice.speak(msg,FloatingAgentService.this::startVoiceInput);
             }
             @Override public void error(String message){
                 setMode("⚠  שגיאה","שגיאה");
-                voice.speak(message);
+                voice.speak(message,FloatingAgentService.this::startVoiceInput);
             }
         });
     }
