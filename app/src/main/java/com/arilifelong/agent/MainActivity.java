@@ -15,7 +15,7 @@ import java.util.ArrayList;
 
 public class MainActivity extends Activity implements VoiceEngine.Listener {
     private static final int OVERLAY_REQUEST=1001, PERM_REQUEST=1002, VOICE_REQUEST=1003;
-    private TextView status; private TextView micIndicator, heardIndicator, agentIndicator; private VoiceEngine voice;
+    private TextView status; private TextView micIndicator, heardIndicator, agentIndicator; private VoiceEngine voice; private JSONArray pendingSuggestions;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state); setContentView(R.layout.activity_main);
@@ -97,6 +97,8 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
     @Override protected void onDestroy(){if(voice!=null)voice.destroy();super.onDestroy();}
 
     @Override public void onText(String text){
+        if(handleSuggestionCommand(text)) return;
+        if(handleSuggestionRequest(text)) return;
         setIndicators("מיקרופון קלט קול","שמעתי: "+text,"מעבד עכשיו...");
         updateMicrophoneNotification("המיקרופון פעיל — מעבד את הדיבור");
         status.setText("הסוכן מבצע: "+text);
