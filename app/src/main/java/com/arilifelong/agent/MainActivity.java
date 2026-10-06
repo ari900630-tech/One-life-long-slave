@@ -159,9 +159,30 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
                 case "recents": ok=ActionEngine.recents();break;
                 case "notifications": ok=ActionEngine.notifications(this);break;
                 case "quick_settings": ok=ActionEngine.quickSettings(this);break;
-                case "click_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.clickContains(x.optString("text"));break;}
-                case "type_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.setText(x.optString("text"));break;}
-                case "scroll": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.scroll(!"back".equals(x.optString("direction")));break;}
+                case "click_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.performActionWithFallback("CLICK_TEXT",x.optString("text"),"");break;}
+                case "click_content_description": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.performActionWithFallback("CLICK_CONTENT_DESCRIPTION",x.optString("text",x.optString("target")),"");break;}
+                case "click_role": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.performActionWithFallback("CLICK_ROLE",x.optString("text",x.optString("role")),"");break;}
+                case "long_click_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.performActionWithFallback("LONG_CLICK_TEXT",x.optString("text",x.optString("target")),"");break;}
+                case "send_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.performActionWithFallback("SEND_TEXT",x.optString("text"),"");break;}
+                case "swipe_direction": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.performActionWithFallback("SWIPE","",x.optString("direction","up"));break;}
+                case "like": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.performActionWithFallback("LIKE","","");break;}
+                case "follow": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.performActionWithFallback("FOLLOW","","");break;}
+                case "approve": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.performActionWithFallback("APPROVE","","");break;}
+                case "open_chat_menu": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.openChatMenu();break;}
+                case "pin": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.pinItem();break;}
+                case "press_send": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.pressSend();break;}
+                case "open_notifications": ok=ActionEngine.notifications(this);break;
+                case "open_notifications_and_click": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.openNotificationsAndClick(x.optString("text",x.optString("target")),false);break;}
+                case "long_click_notification": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.openNotificationsAndClick(x.optString("text",x.optString("target")),true);break;}
+                case "click_quick_setting": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.openQuickSettingsAndClick(x.optString("text",x.optString("target")),false);break;}
+                case "long_click_quick_setting": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.openQuickSettingsAndClick(x.optString("text",x.optString("target")),true);break;}
+                case "screen_info": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null; if(ok) status.setText(s.screenText()); break;}
+                case "click_repeat": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.clickRepeat(x.optString("text"),x.optInt("count",3),x.optLong("delay",250))>0;break;}
+                case "scroll_until_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.scrollUntilText(x.optString("text"),!"back".equalsIgnoreCase(x.optString("direction")),x.optInt("max",30),x.optLong("delay",250));break;}
+                case "screenshot": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();ok=s!=null&&s.screenshot();break;}
+                case "volume": ok=ActionEngine.volume(this,x.optString("stream","music"),x.optString("direction","up"));break;
+                case "brightness": ok=ActionEngine.brightness(this,x.optInt("value",128));break;
+                case "system_action": ok=ActionEngine.systemAction(this,x.optString("action"));break;
                 case "copy": {android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("agent",x.optString("text")));ok=true;break;}
             }
         }catch(Exception ignored){}
