@@ -160,6 +160,32 @@ public class AgentAccessibilityService extends AccessibilityService {
         for(int i=0;i<n.getChildCount();i++){AccessibilityNodeInfo f=findEditable(n.getChild(i));if(f!=null)return f;}
         return null;
     }
+    public boolean instagramAction(String action,String value){
+        AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return false;
+        String a=action==null?"":action.toLowerCase(Locale.ROOT);
+        String target=value==null?"":value;
+        if("like".equals(a))return clickContains("like")||clickContains("אהבתי")||clickContains("לייק");
+        if("save".equals(a))return clickContains("save")||clickContains("שמור");
+        if("share".equals(a))return clickContains("share")||clickContains("שתף");
+        if("comment".equals(a))return clickContains("comment")||clickContains("תגובה");
+        if("follow".equals(a))return clickContains("follow")||clickContains("עקוב");
+        if("unfollow".equals(a))return clickContains("unfollow")||clickContains("הפסק לעקוב");
+        if("search".equals(a))return clickContains("search")||clickContains("חיפוש");
+        if("profile".equals(a))return clickContains("profile")||clickContains("פרופיל");
+        if("home".equals(a))return clickContains("home")||clickContains("בית");
+        if("reels".equals(a))return clickContains("reels")||clickContains("רילס");
+        if("stories".equals(a))return clickContains("story")||clickContains("סטורי")||clickContains("סיפור");
+        if("messages".equals(a))return clickContains("messages")||clickContains("הודעות");
+        if("new_post".equals(a))return clickContains("new post")||clickContains("פוסט חדש")||clickContains("יצירה");
+        if("next".equals(a))return swipeDirection("up");
+        if("previous".equals(a))return swipeDirection("down");
+        if("back".equals(a))return ActionEngine.back();
+        if("type_comment".equals(a))return setText(target);
+        if("send".equals(a))return clickContains("send")||clickContains("שלח");
+        if("open_result".equals(a)&&!target.isEmpty())return clickContains(target);
+        return false;
+    }
+
     public JSONArray suggestionActions(){
         JSONArray out=new JSONArray();
         AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return out;
