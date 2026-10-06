@@ -30,6 +30,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         startForeground(NOTIFICATION_ID, notification());
         voice=new VoiceEngine(getApplicationContext(),this);
         showBar();
+        try{ registerReceiver(screenReceiver,new IntentFilter("com.arilifelong.agent.SCREEN_CHANGED")); }catch(Exception ignored){}
     }
 
     private void createChannel() {
@@ -143,6 +144,8 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         if(status!=null)status.setText(state);
         updateNotification("הסוכן: "+state);
     }
+
+    @Override public void onDestroy(){ try{unregisterReceiver(screenReceiver);}catch(Exception ignored){} if(voice!=null)voice.destroy(); super.onDestroy(); }
 
     private void startVoiceInput(){
         if(voice==null)return;
