@@ -226,8 +226,8 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         RuntimeLogger.log(this,"COMMAND_RECEIVED","text="+(text==null?"<null>":text));
         if(text==null||text.trim().isEmpty()){RuntimeLogger.log(this,"COMMAND_REJECTED","empty transcript");return;}
         String normalized=text.trim().toLowerCase(java.util.Locale.ROOT);
-        boolean asksToCloseApp=normalized.matches(".*(תסגור|סגור|סגורי|לסגור|תסגר|סגור את|close|quit|exit).*") &&
-                normalized.matches(".*(אפליקציה|אפליקצייה|app|application|תוכנה).*");
+        boolean asksToCloseApp=normalized.matches(".*(תסגור|סגור|סגר|סגרות|סגורת|סגורו|לסגור|תסגר|סגור את|close|quit|exit).*") &&
+                normalized.matches(".*(אפליקציה|אפליקצייה|אפליקציה|אפליקצ|app|application|תוכנה).*");
         if(asksToCloseApp){
             RuntimeLogger.log(this,"FAST_PATH","close_current_app text="+text);
             setMode("⚙  סוגר…","סוגר את האפליקציה הנוכחית");
