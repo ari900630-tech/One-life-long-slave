@@ -22,7 +22,8 @@ const TOOLS=[{"type":"function","function":{"name":"open_url","description":"ב�
 {"type":"function","function":{"name":"open_notifications_and_click","description":"פתח התראות ולחץ על התראה לפי טקסט.","parameters":{"type":"object","properties":{"text":{"type":"string"},"target":{"type":"string"}},"additionalProperties":true}}},
 {"type":"function","function":{"name":"long_click_notification","description":"פתח התראות ולחיצה ארוכה על התראה.","parameters":{"type":"object","properties":{"text":{"type":"string"},"target":{"type":"string"}},"additionalProperties":true}}},
 {"type":"function","function":{"name":"click_quick_setting","description":"פתח הגדרות מהירות ולחץ על אריח.","parameters":{"type":"object","properties":{"text":{"type":"string"},"target":{"type":"string"}},"additionalProperties":true}}},
-{"type":"function","function":{"name":"long_click_quick_setting","description":"פתח הגדרות מהירות ולחיצה ארוכה על אריח.","parameters":{"type":"object","properties":{"text":{"type":"string"},"target":{"type":"string"}},"additionalProperties":true}}};]function safeArgs(s){try{return JSON.parse(s||"{}")}catch{return {}}}
+{"type":"function","function":{"name":"long_click_quick_setting","description":"פתח הגדרות מהירות ולחיצה ארוכה על אריח.","parameters":{"type":"object","properties":{"text":{"type":"string"},"target":{"type":"string"}},"additionalProperties":true}}}];
+function safeArgs(s){try{return JSON.parse(s||"{}")}catch{return {}}}
 function callsToActions(calls){return (calls||[]).map(c=>({type:c.function.name,...safeArgs(c.function.arguments)}))}
 
 app.get("/api/health",(req,res)=>res.json({ok:true,groqConfigured:!!process.env.GROQ_API_KEY,service:"phone-agent"}));
