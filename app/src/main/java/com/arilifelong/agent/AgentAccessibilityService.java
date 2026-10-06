@@ -39,7 +39,16 @@ public class AgentAccessibilityService extends AccessibilityService {
         return clickRecursive(root,text,false);
     }
     private List<AccessibilityNodeInfo> matchingNodes(String target){
-        List<AccessibilityNodeInfo> out=new ArrayList<>(); AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return out;
+        List<AccessibilityNodeInfo> out=new ArrayList<>();
+        AccessibilityNodeInfo root=getRootInActiveWindow();
+        if(root==null){
+            long end=System.currentTimeMillis()+1200;
+            while(root==null&&System.currentTimeMillis()<end){
+                try{Thread.sleep(100);}catch(InterruptedException e){Thread.currentThread().interrupt();break;}
+                root=getRootInActiveWindow();
+            }
+        }
+        if(root==null)return out;
         String[] alternatives=(target==null?"":target).split("\\|"); collectMatches(root,alternatives,out); return out;
     }
     private void collectMatches(AccessibilityNodeInfo n,String[] alternatives,List<AccessibilityNodeInfo> out){
