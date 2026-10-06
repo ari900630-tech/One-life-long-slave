@@ -12,17 +12,20 @@ public final class ActionEngine {
     private static Intent ready(Context c, Intent i){ return i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); }
 
     public static boolean openUrl(Context c,String url){
-        try { c.startActivity(ready(c,new Intent(Intent.ACTION_VIEW,Uri.parse(url)))); return true; } catch(Exception e){ return false; }
+        try { c.startActivity(ready(c,new Intent(Intent.ACTION_VIEW,Uri.parse(url)))); return true; } catch(Exception e){ RuntimeLogger.log(c,"ACTION_OPEN_APP","EXCEPTION "+e.toString()); return false; }
     }
     public static boolean openApp(Context c,String pkg){
+        RuntimeLogger.log(c,"ACTION_OPEN_APP","requested="+pkg);
         try {
             String resolved=resolvePackage(c,pkg);
-            if(resolved==null||resolved.isEmpty())return false;
+            if(resolved==null||resolved.isEmpty()){RuntimeLogger.log(c,"ACTION_OPEN_APP","FAIL no package for "+pkg);return false;}
             Intent i=c.getPackageManager().getLaunchIntentForPackage(resolved);
-            if(i==null)return false;
+            if(i==null){RuntimeLogger.log(c,"ACTION_OPEN_APP","FAIL no launch intent "+resolved);return false;}
             i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP);
             c.startActivity(ready(c,i));
-            return waitForAccessibilityWindow(1800);
+            boolean ready=waitForAccessibilityWindow(1800);
+            RuntimeLogger.log(c,"ACTION_OPEN_APP","launched="+resolved+" accessibilityReady="+ready);
+            return true;
         } catch(Exception e){ return false; }
     }
     private static String resolvePackage(Context c,String value){
