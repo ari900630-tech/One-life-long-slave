@@ -42,7 +42,6 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 if(added>0&&voice!=null) voice.speak(b.toString()+". תגיד לי מה לעשות ואני אבצע.",null);
             }catch(Exception ignored){}
         }
-        }
     };
 
     private WindowManager.LayoutParams overlayLp;
@@ -290,7 +289,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 }
             }
             @Override public void error(String message){
-                setMode("⚠  לא הצלחתי","יש שגיאה — אפשר להעתיק את הלוג");
+                setMode("⚠  לא הצלחתי","הפעולה נכשלה — ממשיך להקשיב");
                 showErrorCopy(message,text);
                 voice.speak("לא הצלחתי לבצע את זה. מה תרצה שאעשה עכשיו?",FloatingAgentService.this::startVoiceInput);
             }
