@@ -139,7 +139,16 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         updateMicrophoneNotification("המיקרופון פעיל — מעבד את הדיבור");
         status.setText("הסוכן מבצע: "+text);
         ApiClient.chat(text,new ApiClient.Callback(){
-            public void success(JSONObject result){runActions(result.optJSONArray("actions")); String reply=result.optString("reply","בוצע"); status.setText(reply); setIndicators("מיקרופון מוכן","הפקודה נקלטה","הסוכן משיב"); voice.speak(reply, MainActivity.this::startVoiceInput);}
+            public void success(JSONObject result){
+                    JSONArray actions=result.optJSONArray("actions");
+                    ActionResult ar=runActions(actions);
+                    String reply;
+                    if(ar.total==0) reply=result.optString("reply","אני כאן. מה תרצה שאעשה?");
+                    else if(ar.failed==0) reply=actions.length()==1 ? "בסדר, בוצע." : "בסדר, ביצעתי את הפעולות שביקשת.";
+                    else if(ar.succeeded==0) reply="לא הצלחתי לבצע את הבקשה. הסבר לי שוב מה רצית שאעשה ואנסה בדרך אחרת.";
+                    else reply="ביצעתי חלק מהבקשה, אבל פעולה אחת או יותר לא הצליחו. הסבר לי מה תרצה שאנסה שוב.";
+                    status.setText(reply); setIndicators("מיקרופון מוכן","הפקודה נקלטה","הסוכן משיב"); voice.speak(reply, MainActivity.this::startVoiceInput);
+                }
             public void error(String message){status.setText(message); setIndicators("מיקרופון מוכן","הפקודה נקלטה","שגיאה: "+message); voice.speak(message, MainActivity.this::startVoiceInput);}
         });
     }
@@ -171,8 +180,11 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         if(agentIndicator!=null)agentIndicator.setText("● "+c);
     }
 
-    private void runActions(JSONArray actions){
-        if(actions==null)return;
+    private static class ActionResult { int total; int succeeded; int failed; }
+    private ActionResult runActions(JSONArray actions){
+        ActionResult result=new ActionResult();
+        if(actions==null)return result;
+        result.total=actions.length();
         for(int i=0;i<actions.length();i++)try{
             JSONObject x=actions.getJSONObject(i); String t=x.optString("type");
             boolean ok=false;
