@@ -185,6 +185,9 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         for(int i=0;i<a.length();i++)try{
             setMode("⚙ "+(i+1)+"/"+a.length(),"מבצע שלב "+(i+1)+" מתוך "+a.length());
             JSONObject x=a.getJSONObject(i); String t=x.optString("type");
+            if(t.equals("open_app")||t.equals("settings")||t.equals("app_settings")||t.equals("system_action")||t.equals("play_store_search")||t.equals("open_url")){
+                try{Thread.sleep(900);}catch(InterruptedException e){Thread.currentThread().interrupt();}
+            }
             switch(t){
                 case "open_url": ActionEngine.openUrl(this,x.optString("url"));break;
                 case "open_app": ActionEngine.openApp(this,x.optString("package"));break;
