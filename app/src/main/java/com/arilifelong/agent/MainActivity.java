@@ -179,6 +179,7 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
             switch(t){
                 case "open_url": ok=ActionEngine.openUrl(this,x.optString("url"));break;
                 case "instagram_action": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.instagramAction(x.optString("action"),x.optString("value"));break;}
+                case "settings_action": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.settingsAction(x.optString("action"),x.optString("value"));break;}
 
                 case "chrome_new_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.chromeNewTab();break;}
                 case "chrome_close_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.chromeCloseTab();break;}
