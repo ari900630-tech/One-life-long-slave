@@ -171,21 +171,21 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         if(agentIndicator!=null)agentIndicator.setText("● "+c);
     }
 
-    private void runActions(JSONArray a){
+    private void runActions(JSONArray actions){
         if(a==null)return;
-        for(int i=0;i<a.length();i++)try{
-            JSONObject x=a.getJSONObject(i); String t=x.optString("type");
+        for(int i=0;i<actions.length();i++)try{
+            JSONObject x=actions.getJSONObject(i); String t=x.optString("type");
             boolean ok=false;
             switch(t){
                 case "open_url": ok=ActionEngine.openUrl(this,x.optString("url"));break;
-                case "instagram_action": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.instagramAction(x.optString("action"),x.optString("value"));break;}
-                case "settings_action": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.settingsAction(x.optString("action"),x.optString("value"));break;}
+                case "instagram_action": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();ok=svc!=null&&svc.instagramAction(x.optString("action"),x.optString("value"));break;}
+                case "settings_action": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();ok=svc!=null&&svc.settingsAction(x.optString("action"),x.optString("value"));break;}
 
-                case "chrome_new_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.chromeNewTab();break;}
-                case "chrome_close_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.chromeCloseTab();break;}
-                case "chrome_next_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.chromeNextTab();break;}
-                case "chrome_previous_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.chromePreviousTab();break;}
-                case "chrome_clear_search": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.chromeClearSearch();break;}
+                case "chrome_new_tab": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();ok=svc!=null&&svc.chromeNewTab();break;}
+                case "chrome_close_tab": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();ok=svc!=null&&svc.chromeCloseTab();break;}
+                case "chrome_next_tab": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();ok=svc!=null&&svc.chromeNextTab();break;}
+                case "chrome_previous_tab": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();ok=svc!=null&&svc.chromePreviousTab();break;}
+                case "chrome_clear_search": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();ok=svc!=null&&svc.chromeClearSearch();break;}
 
                 case "open_app": ok=ActionEngine.openApp(this,x.optString("package"));break;
                 case "dial": ok=ActionEngine.dial(this,x.optString("number"));break;
