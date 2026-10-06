@@ -21,6 +21,15 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     private static final int NOTIFICATION_ID=7;
     public static final String ACTION_UPDATE_NOTIFICATION="com.arilifelong.agent.UPDATE_NOTIFICATION";
     private String notificationText="הסוכן הצף פעיל";
+    private final BroadcastReceiver screenReceiver=new BroadcastReceiver(){
+        @Override public void onReceive(Context context,Intent intent){
+            if(intent==null)return;
+            String d=intent.getStringExtra("description");
+            if(d==null||d.trim().isEmpty())return;
+            if(voice!=null) voice.speak("אני רואה: "+d.trim(),null);
+        }
+    };
+
     private WindowManager.LayoutParams overlayLp;
     private float downX,downY; private int startX,startY; private boolean dragging;
 
@@ -145,8 +154,6 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         updateNotification("הסוכן: "+state);
     }
 
-    @Override public void onDestroy(){ try{unregisterReceiver(screenReceiver);}catch(Exception ignored){} if(voice!=null)voice.destroy(); super.onDestroy(); }
-
     private void startVoiceInput(){
         if(voice==null)return;
         if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)!=android.content.pm.PackageManager.PERMISSION_GRANTED){
@@ -183,11 +190,11 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         else if(s.startsWith("שגיאת"))setMode("🎙  דבר",s);
     }
 
-    private void runActions(JSONArray a){
+    private void runActions(JSONArray actions){
         if(a==null)return;
-        for(int i=0;i<a.length();i++)try{
-            setMode("⚙ "+(i+1)+"/"+a.length(),"מבצע שלב "+(i+1)+" מתוך "+a.length());
-            JSONObject x=a.getJSONObject(i); String t=x.optString("type");
+        for(int i=0;i<actions.length();i++)try{
+            setMode("⚙ "+(i+1)+"/"+actions.length(),"מבצע שלב "+(i+1)+" מתוך "+actions.length());
+            JSONObject x=actions.getJSONObject(i); String t=x.optString("type");
             if(t.equals("open_app")||t.equals("settings")||t.equals("app_settings")||t.equals("system_action")||t.equals("play_store_search")||t.equals("open_url")){
                 try{Thread.sleep(900);}catch(InterruptedException e){Thread.currentThread().interrupt();}
             }
@@ -247,11 +254,11 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 case "move_overlay_xy": if(overlayLp!=null&&wm!=null&&bar!=null){overlayLp.gravity=Gravity.TOP|Gravity.LEFT;overlayLp.x=x.optInt("x",0);overlayLp.y=Math.max(8,x.optInt("y",80));try{wm.updateViewLayout(bar,overlayLp);}catch(Exception ignored){}}break;
                 case "save_routine": {String n=x.optString("name","routine"),data=x.optString("routine_json","[]");getSharedPreferences("routines",0).edit().putString(n,data).apply();break;}
                 case "run_routine": {String n=x.optString("name","routine"),data=getSharedPreferences("routines",0).getString(n,"[]");try{runActions(new JSONArray(data));}catch(Exception ignored){}break;}
-                case "chrome_new_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();if(a!=null)a.chromeNewTab();break;}
-                case "chrome_close_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();if(a!=null)a.chromeCloseTab();break;}
-                case "chrome_next_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();if(a!=null)a.chromeNextTab();break;}
-                case "chrome_previous_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();if(a!=null)a.chromePreviousTab();break;}
-                case "chrome_clear_search": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();if(a!=null)a.chromeClearSearch();break;}
+                case "chrome_new_tab": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();if(svc!=null)svc.chromeNewTab();break;}
+                case "chrome_close_tab": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();if(svc!=null)svc.chromeCloseTab();break;}
+                case "chrome_next_tab": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();if(svc!=null)svc.chromeNextTab();break;}
+                case "chrome_previous_tab": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();if(svc!=null)svc.chromePreviousTab();break;}
+                case "chrome_clear_search": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();if(svc!=null)svc.chromeClearSearch();break;}
                 case "copy": {android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("agent",x.optString("text")));break;}
             }
         }catch(Exception ignored){}
