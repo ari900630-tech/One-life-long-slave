@@ -218,6 +218,12 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 case "like": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.performActionWithFallback("LIKE","","");break;}
                 case "follow": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.performActionWithFallback("FOLLOW","","");break;}
                 case "approve": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.performActionWithFallback("APPROVE","","");break;}
+                case "open_chat_menu": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.openChatMenu();break;}
+                case "pin": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.pinItem();break;}
+                case "press_send": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.pressSend();break;}
+                case "open_notifications": ActionEngine.notifications(this);break;
+                case "uninstall_app": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.uninstallApp(x.optString("package"),x.optString("app"));break;}
+                case "uninstall_current_app": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.uninstallApp("", "");break;}
                 case "open_notifications_and_click": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.openNotificationsAndClick(x.optString("text",x.optString("target")),false);break;}
                 case "long_click_notification": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.openNotificationsAndClick(x.optString("text",x.optString("target")),true);break;}
                 case "click_quick_setting": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.openQuickSettingsAndClick(x.optString("text",x.optString("target")),false);break;}
