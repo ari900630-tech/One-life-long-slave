@@ -125,4 +125,12 @@ public final class ActionEngine {
     public static boolean back(){return AgentAccessibilityService.getInstance()!=null&&AgentAccessibilityService.getInstance().globalBack();}
     public static boolean home(){return AgentAccessibilityService.getInstance()!=null&&AgentAccessibilityService.getInstance().home();}
     public static boolean recents(){return AgentAccessibilityService.getInstance()!=null&&AgentAccessibilityService.getInstance().recents();}
+    public static boolean closeCurrentApp(){
+        AgentAccessibilityService s=AgentAccessibilityService.getInstance();
+        RuntimeLogger.log(s,"ACTION_CLOSE_APP","requested");
+        if(s==null){RuntimeLogger.log(null,"ACTION_CLOSE_APP","FAIL accessibility=null");return false;}
+        boolean ok=s.closeCurrentApp();
+        RuntimeLogger.log(s,"ACTION_CLOSE_APP","result="+ok);
+        return ok;
+    }
 }
