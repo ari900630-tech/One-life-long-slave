@@ -226,8 +226,9 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         RuntimeLogger.log(this,"COMMAND_RECEIVED","text="+(text==null?"<null>":text));
         if(text==null||text.trim().isEmpty()){RuntimeLogger.log(this,"COMMAND_REJECTED","empty transcript");return;}
         String normalized=text.trim().toLowerCase(java.util.Locale.ROOT);
-        boolean asksToOpenInstagram=(normalized.contains("instagram")||normalized.contains("אינסטגרם")) &&
-                (normalized.contains("פתח")||normalized.contains("פתוח")||normalized.contains("open")||normalized.contains("תפתח"));
+        boolean mentionsInstagram=(normalized.contains("instagram")||normalized.contains("אינסטגרם"));
+        boolean asksToOpenInstagram=mentionsInstagram &&
+                !normalized.contains("סגור") && !normalized.contains("close") && !normalized.contains("צא");
         if(asksToOpenInstagram){
             RuntimeLogger.log(this,"FAST_PATH","open_instagram text="+text);
             setMode("⚙  פותח…","פותח את אינסטגרם");
@@ -250,10 +251,17 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                     voice.speak(result.optString("reply","לא זיהיתי פעולה לביצוע."),FloatingAgentService.this::startVoiceInput);
                     return;
                 }
-                pendingActions=actions; waitingForConfirmation=true;
-                String msg="הבנתי שאתה רוצה "+understood(actions)+". אם זה נכון אמור כן. אם לא, אמור לא ואז תקן אותי.";
-                setMode("⏳  ממתין לאישור","מחכה לאישור שלך");
-                voice.speak(msg,FloatingAgentService.this::startVoiceInput);
+                pendingActions=actions;
+                waitingForConfirmation=false;
+                RuntimeLogger.log(FloatingAgentService.this,"AUTO_EXECUTE","actions="+actions.length()+" command="+text);
+                ActionResult ar=runActions(actions);
+                if(ar.failed==0){
+                    setMode("●  שומע…","בוצע. מוכן לפקודה הבאה");
+                    voice.speak(result.optString("reply","בוצע."),FloatingAgentService.this::startVoiceInput);
+                }else{
+                    setMode("⚠  פעולה נכשלה","ממשיך להאזין");
+                    voice.speak("ביצעתי מה שיכולתי, אבל פעולה אחת נכשלה. אפשר לתת את הפקודה הבאה.",FloatingAgentService.this::startVoiceInput);
+                }
             }
             @Override public void error(String message){
                 setMode("⚠  לא הצלחתי","יש שגיאה — אפשר להעתיק את הלוג");
