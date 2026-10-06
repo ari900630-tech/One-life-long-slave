@@ -15,7 +15,7 @@ import java.util.ArrayList;
 
 public class MainActivity extends Activity implements VoiceEngine.Listener {
     private static final int OVERLAY_REQUEST=1001, PERM_REQUEST=1002, VOICE_REQUEST=1003;
-    private TextView status; private TextView micIndicator, heardIndicator, agentIndicator; private VoiceEngine voice; private JSONArray pendingSuggestions;
+    private TextView status; private TextView micIndicator, heardIndicator, agentIndicator; private VoiceEngine voice; private JSONArray pendingSuggestions; private Button copyError; private String lastErrorLog=""; private String agentMode="all";
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state); setContentView(R.layout.activity_main);
@@ -28,6 +28,11 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         findViewById(R.id.notifications).setOnClickListener(v->openNotificationSettings());
         findViewById(R.id.permissions).setOnClickListener(v->requestPermissions());
         findViewById(R.id.talk).setOnClickListener(v->startVoiceInput());
+        copyError=findViewById(R.id.copy_error); copyError.setOnClickListener(v->copyLastError());
+        findViewById(R.id.agent_all).setOnClickListener(v->setAgentMode("all"));
+        findViewById(R.id.agent_instagram).setOnClickListener(v->setAgentMode("instagram"));
+        findViewById(R.id.agent_settings).setOnClickListener(v->setAgentMode("settings"));
+        findViewById(R.id.agent_chats).setOnClickListener(v->setAgentMode("chats"));
         updateStatus();
         // השיחה מתבצעת מהחלונית הצפה; אין צורך לפתוח את האפליקציה הראשית.
     }
@@ -38,6 +43,10 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         if(android.os.Build.VERSION.SDK_INT<23)return;
         requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO,Manifest.permission.CAMERA,Manifest.permission.READ_CONTACTS,Manifest.permission.CALL_PHONE,Manifest.permission.SEND_SMS},PERM_REQUEST);
     }
+
+    private void setAgentMode(String mode){ agentMode=mode; String label="all".equals(mode)?"כללי":"instagram".equals(mode)?"אינסטגרם":"settings".equals(mode)?"הגדרות":"צ׳אטים"; status.setText("סוכן "+label+" פעיל"); }
+    private void copyLastError(){ if(lastErrorLog.isEmpty())return; android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE); cm.setPrimaryClip(android.content.ClipData.newPlainText("Agent error log",lastErrorLog)); if(copyError!=null)copyError.setText("הועתק"); }
+    private void showErrorLog(String log){ lastErrorLog=log==null?"שגיאה לא ידועה":log; if(copyError!=null){copyError.setVisibility(android.view.View.VISIBLE);copyError.setText("העתק לוג שגיאה");} }
 
     private void startConversation(){
         voice.speak("שלום, אני הסוכן שלך. מה תרצה שאעשה עכשיו?", this::startVoiceInput);
@@ -138,30 +147,30 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         setIndicators("מיקרופון קלט קול","שמעתי: "+text,"מעבד עכשיו...");
         updateMicrophoneNotification("המיקרופון פעיל — מעבד את הדיבור");
         status.setText("הסוכן מבצע: "+text);
-        ApiClient.chat(text,new ApiClient.Callback(){
+        ApiClient.chat("[סוכן פעיל: "+agentMode+"] "+text,new ApiClient.Callback(){
             public void success(JSONObject result){
                     JSONArray actions=result.optJSONArray("actions");
                     ActionResult ar=runActions(actions);
                     String reply;
                     if(ar.total==0) reply=result.optString("reply","אני כאן. מה תרצה שאעשה?");
-                    else if(ar.failed==0) reply=actions.length()==1 ? "בסדר, בוצע." : "בסדר, ביצעתי את הפעולות שביקשת.";
+                    else if(ar.failed==0) reply="";
                     else if(ar.succeeded==0) reply="לא הצלחתי לבצע את הבקשה. הסבר לי שוב מה רצית שאעשה ואנסה בדרך אחרת.";
                     else reply="ביצעתי חלק מהבקשה, אבל פעולה אחת או יותר לא הצליחו. הסבר לי מה תרצה שאנסה שוב.";
-                    status.setText(reply); setIndicators("מיקרופון מוכן","הפקודה נקלטה","הסוכן משיב"); voice.speak(reply, MainActivity.this::startVoiceInput);
+                    status.setText("ממשיך להאזין..."); setIndicators("מיקרופון פעיל","ממשיך להקשיב","מוכן לפקודה הבאה"); startVoiceInput();
                 }
-            public void error(String message){status.setText(message); setIndicators("מיקרופון מוכן","הפקודה נקלטה","שגיאה: "+message); voice.speak(message, MainActivity.this::startVoiceInput);}
+            public void error(String message){ showErrorLog("API ERROR: "+message+"\nCommand: "+text+"\nTime: "+System.currentTimeMillis()); status.setText("לא הצלחתי לבצע את הבקשה."); setIndicators("מיקרופון מוכן","הפקודה נקלטה","לא הצלחתי לבצע"); voice.speak("לא הצלחתי לבצע את זה. מה תרצה שאעשה עכשיו?", MainActivity.this::startVoiceInput); }
         });
     }
 
     @Override public void onState(String s){
-        status.setText(s);
+        if(s!=null && (s.contains("שגיאה")||s.contains("ERROR"))) showErrorLog(s); status.setText(s);
         if("מאזין...".equals(s)) { setIndicators("מיקרופון פעיל","מקשיב עכשיו...","ממתין לתשובה"); updateMicrophoneNotification("המיקרופון פועל — הסוכן מאזין"); }
         else if("שומע אותך...".equals(s)) { setIndicators("מיקרופון פעיל","שומע אותך עכשיו...","מקליט"); updateMicrophoneNotification("המיקרופון פועל — שומע אותך"); }
         else if("קולט קול...".equals(s)) { setIndicators("מיקרופון פעיל","קולט קול...","מקליט"); updateMicrophoneNotification("המיקרופון פועל — קולט קול"); }
         else if("מעבד את הדיבור...".equals(s)) { setIndicators("מיקרופון פעיל","מעבד את הדיבור...","שולח לתמלול"); updateMicrophoneNotification("המיקרופון סיים הקלטה — מתמלל"); }
         else if("לא זוהה קול".equals(s)) { setIndicators("מיקרופון מוכן","לא זוהה קול","לא נשלחה פקודה"); updateMicrophoneNotification("המיקרופון מוכן — לא נקלט דיבור"); }
         else if(s.contains("מנוע הדיבור")||s.contains("קול עברי")) { setIndicators("מיקרופון לא זמין","לא זוהה קול","בעיה במנוע הקולי"); updateMicrophoneNotification("הקול אינו זמין — בדוק מנוע TTS"); }
-        else if(s.startsWith("שגיאת מיקרופון:")) { setIndicators("מיקרופון לא זמין",s,"ההאזנה נעצרה"); updateMicrophoneNotification(s); }
+        else if(s.startsWith("שגיאת מיקרופון:")) { showErrorLog("MIC ERROR: "+s+"\nTime: "+System.currentTimeMillis()); setIndicators("מיקרופון לא זמין","בעיה בהאזנה","לא הצלחתי לשמוע"); updateMicrophoneNotification("בעיה בהאזנה — לחץ על העתקת לוג"); }
         else if("מוכן".equals(s)) { setIndicators("מיקרופון מוכן","ממתין לפקודה","מוכן"); updateMicrophoneNotification("המיקרופון מוכן — אינו מקליט עכשיו"); }
     }
 
