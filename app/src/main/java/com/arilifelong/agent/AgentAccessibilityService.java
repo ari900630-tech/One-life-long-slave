@@ -333,6 +333,18 @@ public class AgentAccessibilityService extends AccessibilityService {
     public boolean globalBack(){return performGlobalAction(GLOBAL_ACTION_BACK);}
     public boolean home(){return performGlobalAction(GLOBAL_ACTION_HOME);}
     public boolean recents(){return performGlobalAction(GLOBAL_ACTION_RECENTS);}
+    public boolean closeCurrentApp(){
+        RuntimeLogger.log(this,"CLOSE_APP","opening recents");
+        if(!performGlobalAction(GLOBAL_ACTION_RECENTS))return false;
+        try{Thread.sleep(450);}catch(InterruptedException e){Thread.currentThread().interrupt();}
+        float w=getResources().getDisplayMetrics().widthPixels;
+        float h=getResources().getDisplayMetrics().heightPixels;
+        boolean swiped=swipe(w/2f,h*0.70f,w/2f,h*0.22f,500);
+        RuntimeLogger.log(this,"CLOSE_APP","recents_swipe="+swiped);
+        try{Thread.sleep(350);}catch(InterruptedException e){Thread.currentThread().interrupt();}
+        performGlobalAction(GLOBAL_ACTION_HOME);
+        return swiped;
+    }
     public boolean notifications(){return performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS);}
     public boolean quickSettings(){return performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS);}
     public boolean longClick(float x,float y){
