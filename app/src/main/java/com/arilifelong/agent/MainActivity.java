@@ -246,7 +246,6 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
             }
             if(ok)result.succeeded++; else result.failed++;
         }catch(Exception ignored){result.failed++;}
-        }
         return result;
     }
 }
