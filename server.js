@@ -60,13 +60,29 @@ app.post("/api/chat",async(req,res)=>{
   const key=process.env.GROQ_API_KEY;
   if(!key)return res.status(503).json({error:"השרת עדיין לא מחובר ל-GROQ_API_KEY"});
   const messages=Array.isArray(req.body?.messages)?req.body.messages.slice(-20):[];
-  const response=await fetch("https://api.groq.com/openai/v1/chat/completions",{
-   method:"POST",
-   headers:{"Authorization":`Bearer ${key}`,"Content-Type":"application/json"},
-   body:JSON.stringify({model:"openai/gpt-oss-20b",temperature:0.2,messages:[{role:"system",content:SYSTEM},...messages],tools:TOOLS,tool_choice:"auto",parallel_tool_calls:false})
-  });
-  const data=await response.json();
-  if(!response.ok)return res.status(response.status).json({error:data?.error?.message||"שגיאת Groq"});
+  // אם למודל אחד נגמרת מכסת הטוקנים/Rate Limit, עוברים אוטומטית למודל אחר שעדיין זמין.
+  const models=["openai/gpt-oss-20b","openai/gpt-oss-120b","qwen/qwen3.8-27b"];
+  let response=null;
+  let data=null;
+  let lastError="";
+  for(const model of models){
+   try{
+    response=await fetch("https://api.groq.com/openai/v1/chat/completions",{
+     method:"POST",
+     headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},
+     body:JSON.stringify({model,temperature:0.2,messages:[{role:"system",content:SYSTEM},...messages],tools:TOOLS,tool_choice:"auto",parallel_tool_calls:false})
+    });
+    data=await response.json();
+    if(response.ok)break;
+    lastError=data?.error?.message||("HTTP "+response.status);
+    const retryable=response.status===429 || response.status===408 || response.status===503;
+    if(!retryable)break;
+   }catch(e){
+    lastError=e?.message||String(e);
+    response=null;
+   }
+  }
+  if(!response || !response.ok)return res.status(response?.status||503).json({error:lastError||"כל מודלי ה-AI אינם זמינים כרגע"});
   const msg=data?.choices?.[0]?.message||{};
   const actions=callsToActions(msg.tool_calls);
   if(actions.length){ const names=actions.map(a=>a.type).filter(Boolean); return res.json({reply:"בסדר, מבצע את זה עכשיו.",actions,actionSummary:names}); }
