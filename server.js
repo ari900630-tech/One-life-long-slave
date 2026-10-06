@@ -29,6 +29,16 @@ const TOOLS=[{"type":"function","function":{"name":"open_url","description":"ב�
 {"type":"function","function":{"name":"chrome_clear_search","description":"מחק את הטקסט הקיים בשדה החיפוש או בשורת הכתובת של Chrome.","parameters":{"type":"object","properties":{},"additionalProperties":true}}},
 {"type":"function","function":{"name":"settings_action","description":"בצע פעולה בהגדרות Android לפי המסך הנוכחי. פעולות: open, wifi, bluetooth, sound, volume, display, brightness, battery, apps, notifications, privacy, security, storage, language, date_time, accessibility, permissions, accounts, location, screen_lock, search, click, scroll, back.","parameters":{"type":"object","properties":{"action":{"type":"string"},"value":{"type":"string"}},"required":["action"],"additionalProperties":true}}},{"type":"function","function":{"name":"instagram_action","description":"בצע פעולה באינסטגרם לפי מה שרואים כרגע. פעולות: like, save, share, comment, follow, unfollow, search, profile, home, reels, stories, messages, new_post, next, previous, back, type_comment, send, open_result.","parameters":{"type":"object","properties":{"action":{"type":"string"},"value":{"type":"string"}},"required":["action"],"additionalProperties":true}}},{"type":"function","function":{"name":"uninstall_current_app","description":"הסר את האפליקציה הפתוחה כרגע דרך מסך הבית.","parameters":{"type":"object","properties":{},"additionalProperties":true}}}];
 const MODEL_TOOLS=TOOLS.map(t=>({type:"function",function:{name:t.function.name,description:String(t.function.description||"").slice(0,120),parameters:{type:"object",additionalProperties:true}}}));
+function selectModelTools(mode){
+ const sets={
+  instagram:["instagram_action","click_text","click_content_description","type_text","send_text","tap","swipe","scroll","screen_info","screenshot","back","home"],
+  settings:["settings_action","system_action","click_text","tap","swipe","scroll","screen_info","back","home","volume","brightness","notifications"],
+  overlay:["move_overlay","move_overlay_xy","resize_overlay","hide_overlay","show_overlay","screen_info","tap","click_text","back","home"],
+  all:["open_app","open_url","dial","call","sms","maps","click_text","type_text","tap","swipe","scroll","screen_info","back","home","settings_action"]
+ };
+ const names=sets[mode]||sets.all;
+ return MODEL_TOOLS.filter(t=>names.includes(t.function.name));
+}
 function safeArgs(s){try{return JSON.parse(s||"{}")}catch{return {}}}
 function callsToActions(calls){return (calls||[]).map(c=>({type:c.function.name,...safeArgs(c.function.arguments)}))}
 
@@ -71,7 +81,7 @@ app.post("/api/chat",async(req,res)=>{
     response=await fetch("https://api.groq.com/openai/v1/chat/completions",{
      method:"POST",
      headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},
-     body:JSON.stringify({model,temperature:0.2,messages:[{role:"system",content:SYSTEM},...messages],tools:MODEL_TOOLS,tool_choice:"auto",parallel_tool_calls:false})
+     body:JSON.stringify({model,temperature:0.2,messages:[{role:"system",content:SYSTEM},...messages],tools:selectModelTools(String(req.body?.mode||"all").toLowerCase()),tool_choice:"auto",parallel_tool_calls:false})
     });
     data=await response.json();
     if(response.ok)break;
