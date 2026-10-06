@@ -27,7 +27,7 @@ const TOOLS=[{"type":"function","function":{"name":"open_url","description":"ב�
 {"type":"function","function":{"name":"chrome_next_tab","description":"עבור לכרטיסייה הבאה ב-Chrome.","parameters":{"type":"object","properties":{},"additionalProperties":true}}},
 {"type":"function","function":{"name":"chrome_previous_tab","description":"עבור לכרטיסייה הקודמת ב-Chrome.","parameters":{"type":"object","properties":{},"additionalProperties":true}}},
 {"type":"function","function":{"name":"chrome_clear_search","description":"מחק את הטקסט הקיים בשדה החיפוש או בשורת הכתובת של Chrome.","parameters":{"type":"object","properties":{},"additionalProperties":true}}},
-{"type":"function","function":{"name":"uninstall_current_app","description":"הסר את האפליקציה הפתוחה כרגע דרך מסך הבית.","parameters":{"type":"object","properties":{},"additionalProperties":true}}}];
+{"type":"function","function":{"name":"instagram_action","description":"בצע פעולה באינסטגרם לפי מה שרואים כרגע. פעולות: like, save, share, comment, follow, unfollow, search, profile, home, reels, stories, messages, new_post, next, previous, back, type_comment, send, open_result.","parameters":{"type":"object","properties":{"action":{"type":"string"},"value":{"type":"string"}},"required":["action"],"additionalProperties":true}}},{"type":"function","function":{"name":"uninstall_current_app","description":"הסר את האפליקציה הפתוחה כרגע דרך מסך הבית.","parameters":{"type":"object","properties":{},"additionalProperties":true}}}];
 function safeArgs(s){try{return JSON.parse(s||"{}")}catch{return {}}}
 function callsToActions(calls){return (calls||[]).map(c=>({type:c.function.name,...safeArgs(c.function.arguments)}))}
 
