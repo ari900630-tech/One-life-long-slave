@@ -11,6 +11,8 @@ import java.net.URL;
 public final class ApiClient {
     public interface Callback { void success(JSONObject result); void error(String message); }
     private static final String DEFAULT_BASE="https://one-life-long-slave.onrender.com";
+    private static final JSONArray history=new JSONArray();
+    private static final Object HISTORY_LOCK=new Object();
     private ApiClient(){}
 
     public static void chat(final String text, final Callback cb){
@@ -22,7 +24,19 @@ public final class ApiClient {
                 c.setRequestMethod("POST"); c.setConnectTimeout(15000); c.setReadTimeout(60000);
                 c.setRequestProperty("Content-Type","application/json"); c.setDoOutput(true);
                 JSONArray messages=new JSONArray();
-                JSONObject m=new JSONObject(); m.put("role","user"); m.put("content",text); messages.put(m);
+                synchronized(HISTORY_LOCK){
+                    for(int i=0;i<history.length();i++)messages.put(history.getJSONObject(i));
+                }
+                String context="";
+                try{
+                    AgentAccessibilityService svc=AgentAccessibilityService.getInstance();
+                    if(svc!=null)context="\n\nמה שנגיש כרגע במסך:\n"+svc.screenText();
+                }catch(Exception ignored){}
+                JSONObject m=new JSONObject(); m.put("role","user"); m.put("content",text+context); messages.put(m);
+                synchronized(HISTORY_LOCK){
+                    history.put(new JSONObject().put("role","user").put("content",text+context));
+                    while(history.length()>12)history.remove(0);
+                }
                 JSONObject body=new JSONObject(); body.put("messages",messages);
                 try(OutputStream os=c.getOutputStream()){ os.write(body.toString().getBytes("UTF-8")); }
                 int code=c.getResponseCode();
@@ -30,7 +44,14 @@ public final class ApiClient {
                 String response=read(in);
                 JSONObject out=parseObject(response);
                 Handler h=new Handler(Looper.getMainLooper());
-                if(code>=200&&code<300)h.post(() -> cb.success(out));
+                if(code>=200&&code<300){
+                    String reply=out.optString("reply","");
+                    synchronized(HISTORY_LOCK){
+                        if(!reply.isEmpty())history.put(new JSONObject().put("role","assistant").put("content",reply));
+                        while(history.length()>12)history.remove(0);
+                    }
+                    h.post(() -> cb.success(out));
+                }
                 else h.post(() -> cb.error("שגיאת שרת ("+code+"): "+out.optString("error",response)));
             }catch(Exception e){
                 String msg=e.getClass().getSimpleName()+": "+(e.getMessage()==null?"ללא פירוט":e.getMessage());
