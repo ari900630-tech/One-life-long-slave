@@ -160,6 +160,34 @@ public class AgentAccessibilityService extends AccessibilityService {
         for(int i=0;i<n.getChildCount();i++){AccessibilityNodeInfo f=findEditable(n.getChild(i));if(f!=null)return f;}
         return null;
     }
+    public boolean settingsAction(String action,String value){
+        String a=action==null?"":action.toLowerCase(Locale.ROOT);
+        String v=value==null?"":value;
+        if("open".equals(a))return clickTextOrDescription("Settings|הגדרות");
+        if("wifi".equals(a))return clickTextOrDescription("Wi-Fi|Wi‑Fi|WiFi|רשת ואינטרנט|אינטרנט");
+        if("bluetooth".equals(a))return clickTextOrDescription("Bluetooth|בלוטות'|בלוטוס");
+        if("sound".equals(a)||"volume".equals(a))return clickTextOrDescription("Sound|צליל|קול");
+        if("display".equals(a)||"brightness".equals(a))return clickTextOrDescription("Display|תצוגה|בהירות");
+        if("battery".equals(a))return clickTextOrDescription("Battery|סוללה");
+        if("apps".equals(a))return clickTextOrDescription("Apps|אפליקציות");
+        if("notifications".equals(a))return clickTextOrDescription("Notifications|התראות");
+        if("privacy".equals(a))return clickTextOrDescription("Privacy|פרטיות");
+        if("security".equals(a))return clickTextOrDescription("Security|אבטחה");
+        if("storage".equals(a))return clickTextOrDescription("Storage|אחסון");
+        if("language".equals(a))return clickTextOrDescription("Language|שפה|שפות");
+        if("date_time".equals(a))return clickTextOrDescription("Date & time|Date and time|תאריך ושעה");
+        if("accessibility".equals(a))return clickTextOrDescription("Accessibility|נגישות");
+        if("permissions".equals(a))return clickTextOrDescription("Permissions|הרשאות");
+        if("accounts".equals(a))return clickTextOrDescription("Accounts|חשבונות");
+        if("location".equals(a))return clickTextOrDescription("Location|מיקום");
+        if("screen_lock".equals(a))return clickTextOrDescription("Screen lock|נעילת מסך");
+        if("search".equals(a)&&!v.isEmpty())return clickTextOrDescription(v);
+        if("click".equals(a)&&!v.isEmpty())return clickTextOrDescription(v);
+        if("scroll".equals(a))return swipeDirection(v.isEmpty()?"up":v);
+        if("back".equals(a))return ActionEngine.back();
+        return false;
+    }
+
     public boolean instagramAction(String action,String value){
         AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return false;
         String a=action==null?"":action.toLowerCase(Locale.ROOT);
