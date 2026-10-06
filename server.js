@@ -59,7 +59,7 @@ app.post("/api/chat",async(req,res)=>{
  try{
   const key=process.env.GROQ_API_KEY;
   if(!key)return res.status(503).json({error:"השרת עדיין לא מחובר ל-GROQ_API_KEY"});
-  const messages=Array.isArray(req.body?.messages)?req.body.messages.slice(-20):[];
+  const messages=Array.isArray(req.body?.messages)?req.body.messages.slice(-6).map(m=>({...m,content:typeof m.content==="string"?m.content.slice(-1400):m.content})):[];
   // אם למודל אחד נגמרת מכסת הטוקנים/Rate Limit, עוברים אוטומטית למודל אחר שעדיין זמין.
   const models=["openai/gpt-oss-20b","openai/gpt-oss-120b","qwen/qwen3.8-27b"];
   let response=null;
@@ -75,7 +75,7 @@ app.post("/api/chat",async(req,res)=>{
     data=await response.json();
     if(response.ok)break;
     lastError=data?.error?.message||("HTTP "+response.status);
-    const retryable=response.status===429 || response.status===408 || response.status===503;
+    const retryable=response.status===413 || response.status===429 || response.status===408 || response.status===503;
     if(!retryable)break;
    }catch(e){
     lastError=e?.message||String(e);
