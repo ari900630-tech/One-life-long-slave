@@ -156,7 +156,7 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
                     else if(ar.failed==0) reply="";
                     else if(ar.succeeded==0) reply="לא הצלחתי לבצע את הבקשה. הסבר לי שוב מה רצית שאעשה ואנסה בדרך אחרת.";
                     else reply="ביצעתי חלק מהבקשה, אבל פעולה אחת או יותר לא הצליחו. הסבר לי מה תרצה שאנסה שוב.";
-                    status.setText("ממשיך להאזין..."); setIndicators("מיקרופון פעיל","ממשיך להקשיב","מוכן לפקודה הבאה"); startVoiceInput();
+                    if(ar.total==0){ status.setText(reply); setIndicators("מיקרופון פעיל","ממשיך להקשיב","הסוכן משיב"); voice.speak(reply, MainActivity.this::startVoiceInput); } else if(ar.failed==0){ status.setText("ממשיך להאזין..."); setIndicators("מיקרופון פעיל","ממשיך להקשיב","מוכן לפקודה הבאה"); startVoiceInput(); } else { showErrorLog("ACTION ERROR: "+ar.failed+" failed of "+ar.total+"\nCommand: "+text+"\nTime: "+System.currentTimeMillis()); status.setText("לא הצלחתי לבצע את כל הבקשה."); setIndicators("מיקרופון מוכן","הפקודה נקלטה","לא הצלחתי לבצע"); voice.speak("לא הצלחתי לבצע את זה. מה תרצה שאנסה עכשיו?", MainActivity.this::startVoiceInput); }
                 }
             public void error(String message){ showErrorLog("API ERROR: "+message+"\nCommand: "+text+"\nTime: "+System.currentTimeMillis()); status.setText("לא הצלחתי לבצע את הבקשה."); setIndicators("מיקרופון מוכן","הפקודה נקלטה","לא הצלחתי לבצע"); voice.speak("לא הצלחתי לבצע את זה. מה תרצה שאעשה עכשיו?", MainActivity.this::startVoiceInput); }
         });
