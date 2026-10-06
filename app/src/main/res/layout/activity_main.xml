@@ -39,8 +39,7 @@
 
     <Button android:id="@+id/talk" android:layout_width="match_parent" android:layout_height="62dp"
         android:layout_marginTop="14dp" android:text="🎙  דבר עם הסוכן"
-        android:textSize="16sp" android:textStyle="bold" android:textColor="#FFFFFF"
-        android:allCaps="false" android:backgroundTint="#6757D9"/>
+        android:textSize="16sp" android:textStyle="bold" android:textColor="#FFFFFF" android:backgroundTint="#6757D9"/>
 
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
         android:layout_marginTop="22dp" android:text="יכולות ושליטה"
@@ -48,19 +47,19 @@
 
     <Button android:id="@+id/enable" android:layout_width="match_parent" android:layout_height="54dp"
         android:layout_marginTop="10dp" android:text="הפעל חלונית סוכן צפה"
-        android:textSize="15sp" android:allCaps="false" android:textColor="#25263A"
+        android:textSize="15sp" android:textColor="#25263A"
         android:backgroundTint="#FFFFFF"/>
     <Button android:id="@+id/accessibility" android:layout_width="match_parent" android:layout_height="54dp"
         android:layout_marginTop="8dp" android:text="אפשר שליטה במסך"
-        android:textSize="15sp" android:allCaps="false" android:textColor="#25263A"
+        android:textSize="15sp" android:textColor="#25263A"
         android:backgroundTint="#FFFFFF"/>
     <Button android:id="@+id/notifications" android:layout_width="match_parent" android:layout_height="54dp"
         android:layout_marginTop="8dp" android:text="אפשר גישה להתראות"
-        android:textSize="15sp" android:allCaps="false" android:textColor="#25263A"
+        android:textSize="15sp" android:textColor="#25263A"
         android:backgroundTint="#FFFFFF"/>
     <Button android:id="@+id/permissions" android:layout_width="match_parent" android:layout_height="54dp"
         android:layout_marginTop="8dp" android:text="הרשאות מיקרופון ומצלמה"
-        android:textSize="15sp" android:allCaps="false" android:textColor="#25263A"
+        android:textSize="15sp" android:textColor="#25263A"
         android:backgroundTint="#FFFFFF"/>
 
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
@@ -70,22 +69,21 @@
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="horizontal" android:layout_marginTop="10dp" android:weightSum="4">
         <Button android:id="@+id/agent_all" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1"
-            android:layout_marginEnd="4dp" android:text="הכול" android:textSize="12sp" android:allCaps="false"
+            android:layout_marginEnd="4dp" android:text="הכול" android:textSize="12sp"
             android:backgroundTint="#EEEAFD"/>
         <Button android:id="@+id/agent_instagram" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1"
-            android:layout_marginStart="2dp" android:layout_marginEnd="2dp" android:text="אינסטגרם" android:textSize="11sp" android:allCaps="false"
+            android:layout_marginStart="2dp" android:layout_marginEnd="2dp" android:text="אינסטגרם" android:textSize="11sp"
             android:backgroundTint="#F1F2F6"/>
         <Button android:id="@+id/agent_settings" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1"
-            android:layout_marginStart="2dp" android:layout_marginEnd="2dp" android:text="הגדרות" android:textSize="12sp" android:allCaps="false"
+            android:layout_marginStart="2dp" android:layout_marginEnd="2dp" android:text="הגדרות" android:textSize="12sp"
             android:backgroundTint="#F1F2F6"/>
         <Button android:id="@+id/agent_chats" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1"
-            android:layout_marginStart="4dp" android:text="צ׳אטים" android:textSize="12sp" android:allCaps="false"
+            android:layout_marginStart="4dp" android:text="צ׳אטים" android:textSize="12sp"
             android:backgroundTint="#F1F2F6"/>
     </LinearLayout>
 
     <Button android:id="@+id/copy_error" android:layout_width="match_parent" android:layout_height="48dp"
-        android:layout_marginTop="12dp" android:text="העתק לוג שגיאה" android:visibility="gone"
-        android:allCaps="false"/>
+        android:layout_marginTop="12dp" android:text="העתק לוג שגיאה" android:visibility="gone"/>
 
 </LinearLayout>
 </ScrollView>
