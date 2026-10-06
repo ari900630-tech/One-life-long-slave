@@ -18,7 +18,7 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
     private TextView status; private TextView micIndicator, heardIndicator, agentIndicator; private VoiceEngine voice; private JSONArray pendingSuggestions; private Button copyError; private String lastErrorLog=""; private String agentMode="all";
 
     @Override public void onCreate(Bundle state){
-        super.onCreate(state); setContentView(R.layout.activity_main);
+        super.onCreate(state); RuntimeLogger.init(this,"main_activity_onCreate"); RuntimeLogger.log(this,"APP","startup state="+(state==null?"fresh":"restore")); setContentView(R.layout.activity_main);
         status=findViewById(R.id.status); micIndicator=findViewById(R.id.mic_indicator); heardIndicator=findViewById(R.id.heard_indicator); agentIndicator=findViewById(R.id.agent_indicator);
         voice=new VoiceEngine(this,this);
 
@@ -139,9 +139,10 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         return true;
     }
 
-    @Override protected void onDestroy(){if(voice!=null)voice.destroy();super.onDestroy();}
+    @Override protected void onDestroy(){RuntimeLogger.log(this,"APP","main_activity_onDestroy");if(voice!=null)voice.destroy();super.onDestroy();}
 
     @Override public void onText(String text){
+        RuntimeLogger.log(this,"COMMAND_RECEIVED","text="+(text==null?"<null>":text));
         if(handleSuggestionCommand(text)) return;
         if(handleSuggestionRequest(text)) return;
         setIndicators("מיקרופון קלט קול","שמעתי: "+text,"מעבד עכשיו...");
@@ -163,6 +164,7 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
     }
 
     @Override public void onState(String s){
+        RuntimeLogger.log(this,"VOICE_STATE",String.valueOf(s));
         if(s!=null && (s.contains("שגיאה")||s.contains("ERROR"))) showErrorLog(s); status.setText(s);
         if("מאזין...".equals(s)) { setIndicators("מיקרופון פעיל","מקשיב עכשיו...","ממתין לתשובה"); updateMicrophoneNotification("המיקרופון פועל — הסוכן מאזין"); }
         else if("שומע אותך...".equals(s)) { setIndicators("מיקרופון פעיל","שומע אותך עכשיו...","מקליט"); updateMicrophoneNotification("המיקרופון פועל — שומע אותך"); }
