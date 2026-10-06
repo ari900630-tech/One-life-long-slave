@@ -39,16 +39,17 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
 
     public VoiceEngine(Context c, Listener l){
         context=c.getApplicationContext();
+        RuntimeLogger.log(context,"VOICE_ENGINE","created");
         listener=l;
         tts=new TextToSpeech(context,this);
         if(tts!=null)tts.setOnUtteranceProgressListener(new UtteranceProgressListener(){
-            @Override public void onStart(String id){if(listener!=null)listener.onState("הסוכן מדבר...");}
-            @Override public void onDone(String id){
+            @Override public void onStart(String id){RuntimeLogger.log(context,"TTS","started id="+id);if(listener!=null)listener.onState("הסוכן מדבר...");}
+            @Override public void onDone(String id){RuntimeLogger.log(context,"TTS","done id="+id);
                 if(listener!=null)listener.onState("הסוכן סיים לדבר");
                 Runnable r=speechCallbacks.remove(id);
                 if(r!=null)new android.os.Handler(android.os.Looper.getMainLooper()).post(r);
             }
-            @Override public void onError(String id){
+            @Override public void onError(String id){RuntimeLogger.log(context,"TTS_ERROR","id="+id);
                 if(listener!=null)listener.onState("שגיאה בהשמעה קולית");
                 speechCallbacks.remove(id);
             }
@@ -56,6 +57,7 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
     }
 
     public boolean startListening(){
+        RuntimeLogger.log(context,"MIC","startListening");
         if(recording)return true;
         if(android.os.Build.VERSION.SDK_INT>=23 &&
            context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)!=android.content.pm.PackageManager.PERMISSION_GRANTED){
@@ -82,6 +84,7 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
             recording=true;
             recorder.startRecording();
             if(listener!=null)listener.onState("מאזין...");
+            RuntimeLogger.log(context,"MIC","recording_started");
             recordThread=new Thread(()->recordLoop(buffer),"AgentAudioRecorder");
             recordThread.start();
             return true;
@@ -130,15 +133,17 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
                 return;
             }
             if(listener!=null)listener.onState("מעבד את הדיבור...");
+            RuntimeLogger.log(context,"MIC","speech_detected; sending_transcription");
             File wav=new File(context.getCacheDir(),"agent_speech_"+System.currentTimeMillis()+".wav");
             writeWav(wav,pcm.toByteArray());
             ApiClient.transcribe(wav,new ApiClient.Callback(){
                 @Override public void success(org.json.JSONObject result){
                     String text=result.optString("text","").trim();
+                    RuntimeLogger.log(context,"STT_RESULT","text="+text);
                     if(text.isEmpty()){if(listener!=null)listener.onState("שגיאת מיקרופון: לא זוהה דיבור");}
                     else if(listener!=null)listener.onText(text);
                 }
-                @Override public void error(String message){if(listener!=null)listener.onState("שגיאת מיקרופון: "+message);}
+                @Override public void error(String message){RuntimeLogger.log(context,"STT_ERROR",message);if(listener!=null)listener.onState("שגיאת מיקרופון: "+message);}
             });
         }catch(Exception e){
             if(listener!=null)listener.onState("שגיאת מיקרופון: "+e.getClass().getSimpleName());
@@ -175,6 +180,7 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
 
     public void speak(String text){speak(text,null);}
     public void speak(String text,Runnable afterSpeech){
+        RuntimeLogger.log(context,"TTS_REQUEST","text="+(text==null?"":text));
         if(text==null||text.trim().isEmpty())return;
         pendingSpeech=text.trim();
         pendingSpeechCallback=afterSpeech;
@@ -188,6 +194,7 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
         String utteranceId="agent-he-"+speechSequence.incrementAndGet();
         if(afterSpeech!=null)speechCallbacks.put(utteranceId,afterSpeech);
         int result=tts.speak(text,TextToSpeech.QUEUE_FLUSH,null,utteranceId);
+        RuntimeLogger.log(context,"TTS_SUBMIT","result="+result+" id="+utteranceId);
         if(result==TextToSpeech.ERROR&&listener!=null)listener.onState("שגיאה בהשמעה קולית");
     }
 
@@ -207,6 +214,7 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
             languageStatus=tts.setLanguage(new Locale("he"));
         tts.setSpeechRate(0.92f);tts.setPitch(1.0f);
         ttsReady=languageStatus!=TextToSpeech.LANG_MISSING_DATA&&languageStatus!=TextToSpeech.LANG_NOT_SUPPORTED;
+        RuntimeLogger.log(context,"TTS_INIT","status="+status+" languageStatus="+languageStatus+" ready="+ttsReady);
         if(!ttsReady){
             int fallback=tts.setLanguage(Locale.getDefault());
             ttsReady=fallback!=TextToSpeech.LANG_MISSING_DATA&&fallback!=TextToSpeech.LANG_NOT_SUPPORTED;
