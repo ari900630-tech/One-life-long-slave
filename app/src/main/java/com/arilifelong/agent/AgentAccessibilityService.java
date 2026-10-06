@@ -68,6 +68,41 @@ public class AgentAccessibilityService extends AccessibilityService {
     public boolean clickCurrentLike(){return clickTextOrDescription("Like|אהבתי|לייק|👍");}
     public boolean clickCurrentFollow(){return clickTextOrDescription("Follow|עקוב|עוקב|Follow back");}
     public boolean clickApprove(){return clickTextOrDescription("Approve|אשר|אישור|Allow|אפשר|Confirm|כן");}
+    public boolean openChatMenu(){return clickTextOrDescription("שלוש נקודות|אפשרויות נוספות|More options|More|עוד|⋮|︙");}
+    public boolean pinItem(){return clickTextOrDescription("נעץ|הצמד|הצמדה|Pin|Pinned");}
+    public boolean pressSend(){return clickTextOrDescription("שלח|Send|שליחה|Send message|שלח הודעה");}
+    public boolean uninstallApp(String packageName,String appLabel){
+        if(android.os.Build.VERSION.SDK_INT<24)return false;
+        String target=packageName==null||packageName.trim().isEmpty()?"":packageName.trim();
+        if(target.isEmpty()){AccessibilityNodeInfo root=getRootInActiveWindow(); target=root==null?"":String.valueOf(root.getPackageName());}
+        if(target.isEmpty()||target.equals(getPackageName()))return false;
+        String label=appLabel==null?"":appLabel.trim();
+        if(label.isEmpty())try{label=getPackageManager().getApplicationLabel(getPackageManager().getApplicationInfo(target,0)).toString();}catch(Exception ignored){}
+        if(!home())return false;
+        final String pkg=target, finalLabel=label;
+        handler.postDelayed(()->findAndUninstall(pkg,finalLabel,0),800);
+        recordDiagnostic("UNINSTALL_APP","START|package="+pkg); return true;
+    }
+    private void findAndUninstall(String pkg,String label,int attempt){
+        if(attempt>15){recordDiagnostic("UNINSTALL_APP","FAILURE|not_found");return;}
+        AccessibilityNodeInfo root=getRootInActiveWindow(); AccessibilityNodeInfo icon=root==null?null:findNode(root,pkg,label);
+        if(icon!=null){Rect r=new Rect();icon.getBoundsInScreen(r);if(!r.isEmpty()&&longClick(r.centerX(),r.centerY())){handler.postDelayed(()->findUninstallTarget(r.centerX(),r.centerY(),0),850);return;}}
+        handler.postDelayed(()->findAndUninstall(pkg,label,attempt+1),450);
+    }
+    private AccessibilityNodeInfo findNode(AccessibilityNodeInfo n,String pkg,String label){
+        if(n==null)return null; String p=n.getPackageName()==null?"":n.getPackageName().toString();String t=n.getText()==null?"":n.getText().toString();String d=n.getContentDescription()==null?"":n.getContentDescription().toString();
+        if((p.equals(pkg)||(label.length()>0&& (t.equalsIgnoreCase(label)||d.equalsIgnoreCase(label))))&&(n.isClickable()||n.isLongClickable()||n.getChildCount()==0))return n;
+        for(int i=0;i<n.getChildCount();i++){AccessibilityNodeInfo f=findNode(n.getChild(i),pkg,label);if(f!=null)return f;}return null;
+    }
+    private void findUninstallTarget(float sx,float sy,int attempt){
+        if(attempt>12){recordDiagnostic("UNINSTALL_APP","FAILURE|target_not_found");return;}
+        AccessibilityNodeInfo root=getRootInActiveWindow(); AccessibilityNodeInfo target=root==null?null:findLabel(root,"הסר התקנה|הסרת התקנה|הסר|Uninstall|Remove|Remove app");
+        if(target!=null){Rect r=new Rect();target.getBoundsInScreen(r);if(!r.isEmpty()&&drag(sx,sy,r.centerX(),r.centerY())){handler.postDelayed(()->confirmUninstall(0),900);return;}}
+        handler.postDelayed(()->findUninstallTarget(sx,sy,attempt+1),350);
+    }
+    private AccessibilityNodeInfo findLabel(AccessibilityNodeInfo n,String labels){String[] a=labels.split("\\|");String t=n.getText()==null?"":n.getText().toString(),d=n.getContentDescription()==null?"":n.getContentDescription().toString();for(String x:a)if(t.equalsIgnoreCase(x)||d.equalsIgnoreCase(x))return n;for(int i=0;i<n.getChildCount();i++){AccessibilityNodeInfo f=findLabel(n.getChild(i),labels);if(f!=null)return f;}return null;}
+    private boolean drag(float x1,float y1,float x2,float y2){Path p=new Path();p.moveTo(x1,y1);p.lineTo(x2,y2);return dispatchGesture(new GestureDescription.Builder().addStroke(new GestureDescription.StrokeDescription(p,0,900)).build(),null,null);}
+    private void confirmUninstall(int attempt){if(attempt>10)return;AccessibilityNodeInfo root=getRootInActiveWindow();if(root!=null){AccessibilityNodeInfo n=findLabel(root,"הסר התקנה|הסרת התקנה|הסר|Uninstall|OK|אישור");if(n!=null&&n.performAction(AccessibilityNodeInfo.ACTION_CLICK)){recordDiagnostic("UNINSTALL_APP","SUCCESS");return;}}handler.postDelayed(()->confirmUninstall(attempt+1),450);}
     public boolean openNotificationsAndClick(String target,boolean longClick){ if(!notifications())return false; handler.postDelayed(()->{if(longClick)longClickText(target);else clickTextOrDescription(target);},450); return true; }
     public boolean openQuickSettingsAndClick(String target,boolean longClick){ if(!quickSettings())return false; handler.postDelayed(()->{if(longClick)longClickText(target);else clickTextOrDescription(target);},450); return true; }
     public boolean performActionWithFallback(String type,String target,String direction){
