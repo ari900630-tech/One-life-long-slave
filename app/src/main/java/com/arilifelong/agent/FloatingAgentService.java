@@ -244,6 +244,11 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 case "move_overlay_xy": if(overlayLp!=null&&wm!=null&&bar!=null){overlayLp.gravity=Gravity.TOP|Gravity.LEFT;overlayLp.x=x.optInt("x",0);overlayLp.y=Math.max(8,x.optInt("y",80));try{wm.updateViewLayout(bar,overlayLp);}catch(Exception ignored){}}break;
                 case "save_routine": {String n=x.optString("name","routine"),data=x.optString("routine_json","[]");getSharedPreferences("routines",0).edit().putString(n,data).apply();break;}
                 case "run_routine": {String n=x.optString("name","routine"),data=getSharedPreferences("routines",0).getString(n,"[]");try{runActions(new JSONArray(data));}catch(Exception ignored){}break;}
+                case "chrome_new_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();if(a!=null)a.chromeNewTab();break;}
+                case "chrome_close_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();if(a!=null)a.chromeCloseTab();break;}
+                case "chrome_next_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();if(a!=null)a.chromeNextTab();break;}
+                case "chrome_previous_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();if(a!=null)a.chromePreviousTab();break;}
+                case "chrome_clear_search": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();if(a!=null)a.chromeClearSearch();break;}
                 case "copy": {android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("agent",x.optString("text")));break;}
             }
         }catch(Exception ignored){}
