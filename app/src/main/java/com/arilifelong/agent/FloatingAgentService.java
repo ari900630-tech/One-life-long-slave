@@ -85,40 +85,43 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.HORIZONTAL);
         root.setGravity(Gravity.CENTER_VERTICAL);
-        root.setPadding(18,10,12,10);
-        root.setBackground(bg(Color.WHITE,38));
+        root.setPadding(14,8,10,8);
+        GradientDrawable shell=bg(Color.WHITE,34);
+        shell.setStroke(1,Color.rgb(232,234,242));
+        root.setBackground(shell);
+        root.setElevation(16f);
 
-        root.setElevation(12f);
-
-        TextView icon=label("✦",22,Color.rgb(70,55,160));
+        TextView icon=label("✦",22,Color.WHITE);
         icon.setGravity(Gravity.CENTER);
-        root.addView(icon,new LinearLayout.LayoutParams(42,52));
+        icon.setBackground(bg(Color.rgb(103,87,217),28));
+        root.addView(icon,new LinearLayout.LayoutParams(46,46));
 
         LinearLayout info=new LinearLayout(this);
         info.setOrientation(LinearLayout.VERTICAL);
         info.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title=label("הסוכן שלי",15,Color.rgb(35,35,45));
+        info.setPadding(12,0,8,0);
+        TextView title=label("הסוכן שלי",15,Color.rgb(28,29,43));
         title.setTypeface(null,1);
-        status=label("מוכן",11,Color.rgb(105,105,115));
-        info.addView(title,new LinearLayout.LayoutParams(-1,28));
-        info.addView(status,new LinearLayout.LayoutParams(-1,22));
-        root.addView(info,new LinearLayout.LayoutParams(0,52,1));
+        status=label("מוכן להקשיב",11,Color.rgb(112,114,128));
+        info.addView(title,new LinearLayout.LayoutParams(-1,24));
+        info.addView(status,new LinearLayout.LayoutParams(-1,20));
+        root.addView(info,new LinearLayout.LayoutParams(0,46,1));
 
         talk=new Button(this);
         talk.setText("🎙  דבר");
-        talk.setTextSize(14);
+        talk.setTextSize(13);
         talk.setTextColor(Color.WHITE);
         talk.setAllCaps(false);
-        talk.setPadding(22,0,22,0);
-        talk.setBackground(bg(Color.rgb(78,64,170),50));
-        talk.setMinHeight(52);
+        talk.setPadding(16,0,16,0);
+        talk.setBackground(bg(Color.rgb(103,87,217),26));
+        talk.setMinHeight(46);
         talk.setOnClickListener(v->startVoiceInput());
-        root.addView(talk,new LinearLayout.LayoutParams(125,52));
+        root.addView(talk,new LinearLayout.LayoutParams(112,46));
 
-        TextView close=label("×",26,Color.rgb(110,110,120));
+        TextView close=label("×",25,Color.rgb(120,121,135));
         close.setGravity(Gravity.CENTER);
         close.setOnClickListener(v->stopSelf());
-        root.addView(close,new LinearLayout.LayoutParams(38,52));
+        root.addView(close,new LinearLayout.LayoutParams(34,46));
 
         int type=Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE;
         WindowManager.LayoutParams lp=new WindowManager.LayoutParams(
@@ -126,17 +129,24 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT);
         lp.gravity=Gravity.TOP|Gravity.CENTER_HORIZONTAL;
-        lp.y=80;
+        lp.y=72;
         overlayLp=lp;
+
         View.OnTouchListener dragListener=(v,e)->{
             switch(e.getActionMasked()){
-                case MotionEvent.ACTION_DOWN: downX=e.getRawX(); downY=e.getRawY(); startX=overlayLp.x; startY=overlayLp.y; dragging=false; return true;
+                case MotionEvent.ACTION_DOWN:
+                    downX=e.getRawX(); downY=e.getRawY();
+                    startX=overlayLp.x; startY=overlayLp.y; dragging=false; return true;
                 case MotionEvent.ACTION_MOVE:
                     float dx=e.getRawX()-downX, dy=e.getRawY()-downY;
-                    if(Math.abs(dx)>8||Math.abs(dy)>8) dragging=true;
-                    if(dragging){ overlayLp.x=startX+(int)dx; overlayLp.y=Math.max(8,startY+(int)dy); try{wm.updateViewLayout(bar,overlayLp);}catch(Exception ignored){} }
+                    if(Math.abs(dx)>8||Math.abs(dy)>8)dragging=true;
+                    if(dragging){
+                        overlayLp.x=startX+(int)dx;
+                        overlayLp.y=Math.max(8,startY+(int)dy);
+                        try{wm.updateViewLayout(bar,overlayLp);}catch(Exception ignored){}
+                    }
                     return true;
-                case MotionEvent.ACTION_UP: return true;
+                case MotionEvent.ACTION_UP:return true;
             }
             return false;
         };
@@ -254,7 +264,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
 
     @Override public void onState(String s){
         if(s==null)return;
-        if(s.contains("שומע אותך")||s.equals("מאזין..."))setMode("●  שומע…","שומע אותך");
+        if(s.contains("מקשיב")||s.equals("מאזין..."))setMode("🎙  מקשיב","מקשיב לך");
         else if(s.contains("מעבד"))setMode("⚙  מבצע…","מעבד את הבקשה");
         else if(s.startsWith("שגיאת"))setMode("🎙  דבר",s);
     }
