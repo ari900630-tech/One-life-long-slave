@@ -191,7 +191,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     }
 
     private void runActions(JSONArray actions){
-        if(a==null)return;
+        if(actions==null)return;
         for(int i=0;i<actions.length();i++)try{
             setMode("⚙ "+(i+1)+"/"+actions.length(),"מבצע שלב "+(i+1)+" מתוך "+actions.length());
             JSONObject x=actions.getJSONObject(i); String t=x.optString("type");
