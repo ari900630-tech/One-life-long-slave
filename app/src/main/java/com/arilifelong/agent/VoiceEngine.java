@@ -26,6 +26,7 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
     private final java.util.Map<String,Runnable> speechCallbacks=new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.concurrent.atomic.AtomicLong speechSequence=new java.util.concurrent.atomic.AtomicLong();
     private volatile boolean recording=false;
+    private static final java.util.concurrent.atomic.AtomicBoolean MIC_IN_USE=new java.util.concurrent.atomic.AtomicBoolean(false);
     private AudioRecord recorder;
     private Thread recordThread;
 
@@ -70,19 +71,58 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
             return false;
         }
         int buffer=Math.max(min,SAMPLE_RATE/2);
+        if(!MIC_IN_USE.compareAndSet(false,true)){
+            RuntimeLogger.log(context,"MIC_BUSY","another VoiceEngine is already recording");
+            if(listener!=null)listener.onState("המיקרופון כבר בשימוש. מנסה שוב...");
+            return false;
+        }
+        int[] sources;
+        if(android.os.Build.VERSION.SDK_INT>=21){
+            sources=new int[]{MediaRecorder.AudioSource.DEFAULT,MediaRecorder.AudioSource.VOICE_RECOGNITION,MediaRecorder.AudioSource.MIC,MediaRecorder.AudioSource.VOICE_COMMUNICATION};
+        }else{
+            sources=new int[]{MediaRecorder.AudioSource.DEFAULT,MediaRecorder.AudioSource.MIC};
+        }
         try{
-            recorder=new AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION,SAMPLE_RATE,CHANNEL,ENCODING,buffer);
-            if(recorder.getState()!=AudioRecord.STATE_INITIALIZED){
-                recorder.release();
-                recorder=new AudioRecord(MediaRecorder.AudioSource.MIC,SAMPLE_RATE,CHANNEL,ENCODING,buffer);
+            recorder=null;
+            for(int source:sources){
+                try{
+                    RuntimeLogger.log(context,"MIC_OPEN_ATTEMPT","source="+source+" buffer="+buffer);
+                    AudioRecord candidate=new AudioRecord(source,SAMPLE_RATE,CHANNEL,ENCODING,buffer);
+                    if(candidate.getState()==AudioRecord.STATE_INITIALIZED){
+                        recorder=candidate;
+                        RuntimeLogger.log(context,"MIC_OPEN_OK","source="+source);
+                        break;
+                    }
+                    RuntimeLogger.log(context,"MIC_OPEN_FAIL","source="+source+" state="+candidate.getState());
+                    try{candidate.release();}catch(Exception ignored){}
+                }catch(Exception e){
+                    RuntimeLogger.log(context,"MIC_OPEN_EXCEPTION","source="+source+" error="+e);
+                }
             }
-            if(recorder.getState()!=AudioRecord.STATE_INITIALIZED){
-                recorder.release(); recorder=null;
-                if(listener!=null)listener.onState("שגיאת מיקרופון: לא ניתן לפתוח את המיקרופון");
+            if(recorder==null){
+                MIC_IN_USE.set(false);
+                if(listener!=null)listener.onState("שגיאת מיקרופון: לא ניתן לפתוח את המיקרופון. ייתכן שהמיקרופון בשימוש באפליקציה אחרת.");
+                return false;
+            }
+            try{
+                recorder.startRecording();
+                if(recorder.getRecordingState()!=AudioRecord.RECORDSTATE_RECORDING){
+                    RuntimeLogger.log(context,"MIC_START_FAIL","recordingState="+recorder.getRecordingState());
+                    try{recorder.release();}catch(Exception ignored){}
+                    recorder=null;
+                    MIC_IN_USE.set(false);
+                    if(listener!=null)listener.onState("שגיאת מיקרופון: ההקלטה לא התחילה");
+                    return false;
+                }
+            }catch(Exception e){
+                RuntimeLogger.log(context,"MIC_START_EXCEPTION","error="+e);
+                try{recorder.release();}catch(Exception ignored){}
+                recorder=null;
+                MIC_IN_USE.set(false);
+                if(listener!=null)listener.onState("שגיאת מיקרופון: "+e.getClass().getSimpleName());
                 return false;
             }
             recording=true;
-            recorder.startRecording();
             if(listener!=null)listener.onState("מאזין...");
             RuntimeLogger.log(context,"MIC","recording_started");
             recordThread=new Thread(()->recordLoop(buffer),"AgentAudioRecorder");
@@ -91,6 +131,8 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
         }catch(Exception e){
             recording=false;
             if(recorder!=null){try{recorder.release();}catch(Exception ignored){} recorder=null;}
+            MIC_IN_USE.set(false);
+            RuntimeLogger.log(context,"MIC_OPEN_FATAL","error="+e);
             if(listener!=null)listener.onState("שגיאת מיקרופון: "+e.getClass().getSimpleName());
             return false;
         }
@@ -179,6 +221,7 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
             try{recorder.release();}catch(Exception ignored){}
             recorder=null;
         }
+        MIC_IN_USE.set(false);
     }
 
     public void speak(String text){speak(text,null);}
