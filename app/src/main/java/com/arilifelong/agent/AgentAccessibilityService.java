@@ -3,6 +3,10 @@ package com.arilifelong.agent;
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
 import android.graphics.Path;
+import android.graphics.Rect;
+import android.os.Handler;
+import java.util.ArrayList;
+import java.util.List;
 import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.accessibility.AccessibilityEvent;
@@ -11,9 +15,21 @@ import java.util.Locale;
 
 public class AgentAccessibilityService extends AccessibilityService {
     private static AgentAccessibilityService instance;
+    private final List<String> diagnostics = new ArrayList<>();
+    private final Handler handler = new Handler();
     public static AgentAccessibilityService getInstance(){ return instance; }
 
-    @Override public void onServiceConnected(){ super.onServiceConnected(); instance=this; }
+    @Override public void onServiceConnected(){ super.onServiceConnected(); instance=this; loadDiagnostics(); }
+    private void loadDiagnostics(){
+        String saved=getSharedPreferences("agents_runtime",MODE_PRIVATE).getString("diagnostics","");
+        if(saved!=null&&!saved.isEmpty()){ diagnostics.clear(); for(String x:saved.split("\\n")) if(!x.isEmpty()) diagnostics.add(x); while(diagnostics.size()>100) diagnostics.remove(0); }
+    }
+    public void recordDiagnostic(String action,String message){
+        String e=System.currentTimeMillis()+"|"+action+"|"+message; diagnostics.add(e); while(diagnostics.size()>100) diagnostics.remove(0);
+        getSharedPreferences("agents_runtime",MODE_PRIVATE).edit().putString("diagnostics",joinDiagnostics()).apply();
+    }
+    private String joinDiagnostics(){ StringBuilder b=new StringBuilder(); for(String x:diagnostics){if(b.length()>0)b.append("\\n");b.append(x);} return b.toString(); }
+    public List<String> diagnosticsSnapshot(){ return new ArrayList<>(diagnostics.subList(Math.max(0,diagnostics.size()-20),diagnostics.size())); }
     @Override public void onAccessibilityEvent(AccessibilityEvent event){}
     @Override public void onInterrupt(){}
     @Override public void onDestroy(){ if(instance==this)instance=null; super.onDestroy(); }
@@ -22,6 +38,50 @@ public class AgentAccessibilityService extends AccessibilityService {
         AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return false;
         return clickRecursive(root,text,false);
     }
+    private List<AccessibilityNodeInfo> matchingNodes(String target){
+        List<AccessibilityNodeInfo> out=new ArrayList<>(); AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return out;
+        String[] alternatives=(target==null?"":target).split("\\|"); collectMatches(root,alternatives,out); return out;
+    }
+    private void collectMatches(AccessibilityNodeInfo n,String[] alternatives,List<AccessibilityNodeInfo> out){
+        if(n==null)return; String ts=n.getText()==null?"":n.getText().toString().trim(); String ds=n.getContentDescription()==null?"":n.getContentDescription().toString().trim();
+        for(String a:alternatives){String q=a.trim(); if(!q.isEmpty() && (ts.equalsIgnoreCase(q)||ds.equalsIgnoreCase(q)||ts.toLowerCase(Locale.ROOT).contains(q.toLowerCase(Locale.ROOT))||ds.toLowerCase(Locale.ROOT).contains(q.toLowerCase(Locale.ROOT)))){out.add(n);break;}}
+        for(int i=0;i<n.getChildCount();i++)collectMatches(n.getChild(i),alternatives,out);
+    }
+    public boolean clickTextOrDescription(String target){
+        for(AccessibilityNodeInfo n:matchingNodes(target)){
+            if(n.isClickable()&&n.performAction(AccessibilityNodeInfo.ACTION_CLICK))return true;
+            AccessibilityNodeInfo p=n.getParent(); if(p!=null&&p.isClickable()&&p.performAction(AccessibilityNodeInfo.ACTION_CLICK))return true;
+            Rect r=new Rect(); n.getBoundsInScreen(r); if(!r.isEmpty()&&tap(r.centerX(),r.centerY()))return true;
+        } return false;
+    }
+    public boolean longClickText(String target){
+        for(AccessibilityNodeInfo n:matchingNodes(target)){
+            if(n.isLongClickable()&&n.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK))return true;
+            Rect r=new Rect(); n.getBoundsInScreen(r); if(!r.isEmpty()&&longClick(r.centerX(),r.centerY()))return true;
+        } return false;
+    }
+    public boolean swipeDirection(String direction){
+        float w=getResources().getDisplayMetrics().widthPixels, h=getResources().getDisplayMetrics().heightPixels, cx=w/2f, cy=h/2f;
+        float dx=0,dy=0; String d=direction==null?"up":direction.toLowerCase(Locale.ROOT); if("left".equals(d))dx=-w*.35f; else if("right".equals(d))dx=w*.35f; else if("down".equals(d))dy=h*.28f; else dy=-h*.28f;
+        return swipe(cx-dx,cy-dy,cx+dx,cy+dy,420);
+    }
+    public boolean clickCurrentLike(){return clickTextOrDescription("Like|אהבתי|לייק|👍");}
+    public boolean clickCurrentFollow(){return clickTextOrDescription("Follow|עקוב|עוקב|Follow back");}
+    public boolean clickApprove(){return clickTextOrDescription("Approve|אשר|אישור|Allow|אפשר|Confirm|כן");}
+    public boolean openNotificationsAndClick(String target,boolean longClick){ if(!notifications())return false; handler.postDelayed(()->{if(longClick)longClickText(target);else clickTextOrDescription(target);},450); return true; }
+    public boolean openQuickSettingsAndClick(String target,boolean longClick){ if(!quickSettings())return false; handler.postDelayed(()->{if(longClick)longClickText(target);else clickTextOrDescription(target);},450); return true; }
+    public boolean performActionWithFallback(String type,String target,String direction){
+        long start=System.currentTimeMillis(); boolean ok=false; int attempts=0;
+        for(int i=0;i<3;i++){attempts=i+1; try{
+            if("TYPE_TEXT".equals(type))ok=setText(target); else if("SEND_TEXT".equals(type)){ok=setText(target)&&clickTextOrDescription("Send|שלח|שליחה|➤|✓");}
+            else if("CLICK_TEXT".equals(type)||"CLICK_CONTENT_DESCRIPTION".equals(type)||"CLICK_ROLE".equals(type))ok=clickTextOrDescription(target);
+            else if("LONG_CLICK_TEXT".equals(type))ok=longClickText(target); else if("SCROLL".equals(type))ok=scroll(!"up".equalsIgnoreCase(direction)); else if("SWIPE".equals(type))ok=swipeDirection(direction);
+            else if("LIKE".equals(type))ok=clickCurrentLike(); else if("FOLLOW".equals(type))ok=clickCurrentFollow(); else if("APPROVE".equals(type))ok=clickApprove();
+            if(ok)break; if(i<2){Thread.sleep(120L*(i+1)); AccessibilityNodeInfo r=getRootInActiveWindow();if(r!=null)r.refresh();}
+        }catch(Exception ignored){} }
+        recordDiagnostic(type,(ok?"SUCCESS":"FAILURE")+"|attempts="+attempts+"|durationMs="+(System.currentTimeMillis()-start)); return ok;
+    }
+
     public boolean clickContains(String text){
         AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return false;
         return clickRecursive(root,text,true);
