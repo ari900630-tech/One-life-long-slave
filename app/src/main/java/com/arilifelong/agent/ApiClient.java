@@ -16,6 +16,7 @@ public final class ApiClient {
     private ApiClient(){}
 
     public static void chat(final String text, final Callback cb){
+        RuntimeLogger.log(null,"API_CHAT_REQUEST","text="+text);
         new Thread(() -> {
             HttpURLConnection c=null;
             try{
@@ -38,10 +39,13 @@ public final class ApiClient {
                     while(history.length()>12)history.remove(0);
                 }
                 JSONObject body=new JSONObject(); body.put("messages",messages);
+                RuntimeLogger.log(null,"API_CHAT_SEND","messages="+messages.length()+" bytes="+body.toString().length());
                 try(OutputStream os=c.getOutputStream()){ os.write(body.toString().getBytes("UTF-8")); }
                 int code=c.getResponseCode();
                 InputStream in=code>=200&&code<300?c.getInputStream():c.getErrorStream();
                 String response=read(in);
+                RuntimeLogger.log(null,"API_TRANSCRIBE_RESPONSE","http="+code+" body="+response);
+                RuntimeLogger.log(null,"API_CHAT_RESPONSE","http="+code+" body="+response);
                 JSONObject out=parseObject(response);
                 Handler h=new Handler(Looper.getMainLooper());
                 if(code>=200&&code<300){
@@ -52,15 +56,16 @@ public final class ApiClient {
                     }
                     h.post(() -> cb.success(out));
                 }
-                else h.post(() -> cb.error("שגיאת שרת ("+code+"): "+out.optString("error",response)));
+                else { RuntimeLogger.log(null,"API_CHAT_ERROR","http="+code+" error="+out.optString("error",response)); h.post(() -> cb.error("שגיאת שרת ("+code+"): "+out.optString("error",response))); }
             }catch(Exception e){
                 String msg=e.getClass().getSimpleName()+": "+(e.getMessage()==null?"ללא פירוט":e.getMessage());
-                new Handler(Looper.getMainLooper()).post(() -> cb.error("שגיאת חיבור לשרת הסוכן: "+msg));
+                RuntimeLogger.log(null,"API_CHAT_EXCEPTION",msg); new Handler(Looper.getMainLooper()).post(() -> cb.error("שגיאת חיבור לשרת הסוכן: "+msg));
             }finally{ if(c!=null)c.disconnect(); }
         }).start();
     }
 
     public static void transcribe(final File audio, final Callback cb){
+        RuntimeLogger.log(null,"API_TRANSCRIBE_REQUEST","file="+(audio==null?"null":audio.getName())+" size="+(audio==null?0:audio.length()));
         new Thread(() -> {
             HttpURLConnection c=null;
             String boundary="----PhoneAgent"+System.currentTimeMillis();
@@ -94,7 +99,7 @@ public final class ApiClient {
                 }
             }catch(Exception e){
                 String msg=e.getClass().getSimpleName()+": "+(e.getMessage()==null?"ללא פירוט":e.getMessage());
-                new Handler(Looper.getMainLooper()).post(() -> cb.error("שגיאת חיבור לתמלול: "+msg));
+                RuntimeLogger.log(null,"API_TRANSCRIBE_EXCEPTION",msg); new Handler(Looper.getMainLooper()).post(() -> cb.error("שגיאת חיבור לתמלול: "+msg));
             }finally{ if(c!=null)c.disconnect(); if(audio!=null)audio.delete(); }
         }).start();
     }
