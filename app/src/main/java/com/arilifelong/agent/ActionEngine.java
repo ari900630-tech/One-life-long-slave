@@ -12,7 +12,7 @@ public final class ActionEngine {
     private static Intent ready(Context c, Intent i){ return i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); }
 
     public static boolean openUrl(Context c,String url){
-        try { c.startActivity(ready(c,new Intent(Intent.ACTION_VIEW,Uri.parse(url)))); return true; } catch(Exception e){ RuntimeLogger.log(c,"ACTION_OPEN_APP","EXCEPTION "+e.toString()); return false; }
+        try { c.startActivity(ready(c,new Intent(Intent.ACTION_VIEW,Uri.parse(url)))); return true; } catch(Exception e){ RuntimeLogger.log(c,"ACTION_URL","EXCEPTION "+e.toString()); return false; }
     }
     public static boolean openApp(Context c,String pkg){
         RuntimeLogger.log(c,"ACTION_OPEN_APP","requested="+pkg);
@@ -26,7 +26,7 @@ public final class ActionEngine {
             boolean ready=waitForAccessibilityWindow(1800);
             RuntimeLogger.log(c,"ACTION_OPEN_APP","launched="+resolved+" accessibilityReady="+ready);
             return true;
-        } catch(Exception e){ return false; }
+        } catch(Exception e){ RuntimeLogger.log(c,"ACTION_OPEN_APP","EXCEPTION "+e.toString()); return false; }
     }
     private static String resolvePackage(Context c,String value){
         String v=value==null?"":value.trim();
