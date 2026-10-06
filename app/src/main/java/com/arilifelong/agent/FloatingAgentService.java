@@ -157,11 +157,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     }
 
     private void showErrorCopy(String error,String command){
-        if(bar==null)return;
-        final String log="ERROR: "+error+"\nCOMMAND: "+command+"\nTIME: "+System.currentTimeMillis();
-        Button copy=new Button(this); copy.setText("העתק לוג"); copy.setAllCaps(false); copy.setTextSize(11);
-        copy.setOnClickListener(v->{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("Agent error log",log));copy.setText("הועתק");});
-        try { ((LinearLayout)bar).addView(copy,Math.max(0,((LinearLayout)bar).getChildCount()-1),new LinearLayout.LayoutParams(95,52)); } catch(Exception ignored){}
+        // Error-copy UI intentionally removed from the assistant interface.
     }
 
     private void setMode(String button,String state){
