@@ -39,6 +39,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         startForeground(NOTIFICATION_ID, notification());
         voice=new VoiceEngine(getApplicationContext(),this);
         showBar();
+        voice.speak("שלום, אני העוזר האישי שלך. מה תרצה שאעשה עבורך היום?", FloatingAgentService.this::startVoiceInput);
         try{ registerReceiver(screenReceiver,new IntentFilter("com.arilifelong.agent.SCREEN_CHANGED")); }catch(Exception ignored){}
     }
 
@@ -171,7 +172,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             startActivity(i);
             return;
         }
-        setMode("●  שומע…","מקשיב לך");
+        setMode("🎙  מדבר איתך","מקשיב לך");
         voice.startListening();
     }
 
