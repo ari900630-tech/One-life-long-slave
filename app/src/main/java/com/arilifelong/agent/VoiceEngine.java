@@ -207,7 +207,14 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
             languageStatus=tts.setLanguage(new Locale("he"));
         tts.setSpeechRate(0.92f);tts.setPitch(1.0f);
         ttsReady=languageStatus!=TextToSpeech.LANG_MISSING_DATA&&languageStatus!=TextToSpeech.LANG_NOT_SUPPORTED;
-        if(!ttsReady){\n            int fallback=tts.setLanguage(Locale.getDefault());\n            ttsReady=fallback!=TextToSpeech.LANG_MISSING_DATA&&fallback!=TextToSpeech.LANG_NOT_SUPPORTED;\n            if(!ttsReady){if(listener!=null)listener.onState("מנוע הדיבור לא זמין");return;}\n        }
+        if(!ttsReady){
+            int fallback=tts.setLanguage(Locale.getDefault());
+            ttsReady=fallback!=TextToSpeech.LANG_MISSING_DATA&&fallback!=TextToSpeech.LANG_NOT_SUPPORTED;
+            if(!ttsReady){
+                if(listener!=null)listener.onState("מנוע הדיבור לא זמין");
+                return;
+            }
+        }
         if(pendingSpeech!=null){
             String text=pendingSpeech;Runnable cb=pendingSpeechCallback;
             pendingSpeech=null;pendingSpeechCallback=null;speakNow(text,cb);
