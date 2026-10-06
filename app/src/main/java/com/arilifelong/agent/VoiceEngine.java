@@ -33,9 +33,9 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
     private static final int CHANNEL=AudioFormat.CHANNEL_IN_MONO;
     private static final int ENCODING=AudioFormat.ENCODING_PCM_16BIT;
     private static final int MAX_RECORD_MS=15000;
-    private static final int INITIAL_SILENCE_MS=8000;
+    private static final int INITIAL_SILENCE_MS=12000;
     private static final int END_SILENCE_MS=1200;
-    private static final double SPEECH_RMS=450.0;
+    private static final double SPEECH_RMS=220.0;
 
     public VoiceEngine(Context c, Listener l){
         context=c.getApplicationContext();
@@ -105,7 +105,7 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
         try{
             while(recording && System.currentTimeMillis()-started<MAX_RECORD_MS){
                 int n=recorder.read(samples,0,samples.length);
-                if(n<=0)continue;
+                if(n<=0){RuntimeLogger.log(context,"MIC_READ","read="+n);continue;}
                 byte[] bytes=new byte[n*2];
                 double sum=0;
                 for(int i=0;i<n;i++){
@@ -118,18 +118,21 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
                 double rms=Math.sqrt(sum/n);
                 long now=System.currentTimeMillis();
                 if(rms>=SPEECH_RMS){
+                    RuntimeLogger.log(context,"MIC_LEVEL","rms="+String.format(Locale.US,"%.1f",rms)+" threshold="+SPEECH_RMS);
                     if(speechAt==0)speechAt=now;
                     lastSpeech=now;
                     if(listener!=null)listener.onState("מקשיב...");
                 }else if(speechAt>0 && now-lastSpeech>=END_SILENCE_MS){
                     break;
                 }else if(speechAt==0 && now-started>=INITIAL_SILENCE_MS){
-                    if(listener!=null)listener.onState("שגיאת מיקרופון: לא התחלת לדבר");
+                    RuntimeLogger.log(context,"MIC_NO_SPEECH","no speech detected after "+INITIAL_SILENCE_MS+"ms; pcmBytes="+pcm.size());
+                    if(listener!=null)listener.onState("לא שמעתי דיבור. נסה לדבר שוב.");
                     return;
                 }
             }
             if(speechAt==0){
-                if(listener!=null)listener.onState("שגיאת מיקרופון: לא זוהה דיבור");
+                RuntimeLogger.log(context,"MIC_NO_SPEECH","recording ended without speech; pcmBytes="+pcm.size());
+                if(listener!=null)listener.onState("לא שמעתי דיבור. נסה לדבר שוב.");
                 return;
             }
             if(listener!=null)listener.onState("מעבד את הדיבור...");
@@ -140,10 +143,10 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
                 @Override public void success(org.json.JSONObject result){
                     String text=result.optString("text","").trim();
                     RuntimeLogger.log(context,"STT_RESULT","text="+text);
-                    if(text.isEmpty()){if(listener!=null)listener.onState("שגיאת מיקרופון: לא זוהה דיבור");}
+                    if(text.isEmpty()){RuntimeLogger.log(context,"STT_EMPTY","transcription returned empty");if(listener!=null)listener.onState("לא הצלחתי להבין מה נאמר. נסה שוב.");}
                     else if(listener!=null)listener.onText(text);
                 }
-                @Override public void error(String message){RuntimeLogger.log(context,"STT_ERROR",message);if(listener!=null)listener.onState("שגיאת מיקרופון: "+message);}
+                @Override public void error(String message){RuntimeLogger.log(context,"STT_ERROR",message);if(listener!=null)listener.onState("לא הצלחתי לתמלל את הדיבור: "+message);}
             });
         }catch(Exception e){
             if(listener!=null)listener.onState("שגיאת מיקרופון: "+e.getClass().getSimpleName());
