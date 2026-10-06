@@ -35,10 +35,13 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
 
     @Override public void onCreate() {
         super.onCreate();
+        RuntimeLogger.init(this,"floating_service_onCreate");
+        RuntimeLogger.log(this,"APP","package="+getPackageName()+" android="+Build.VERSION.RELEASE+" sdk="+Build.VERSION.SDK_INT);
         createChannel();
         startForeground(NOTIFICATION_ID, notification());
         voice=new VoiceEngine(getApplicationContext(),this);
         showBar();
+        RuntimeLogger.log(this,"APP","initial_greeting_requested");
         voice.speak("שלום, אני העוזר האישי שלך. מה תרצה שאעשה עבורך היום?", FloatingAgentService.this::startVoiceInput);
         try{ registerReceiver(screenReceiver,new IntentFilter("com.arilifelong.agent.SCREEN_CHANGED")); }catch(Exception ignored){}
     }
@@ -170,7 +173,8 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     }
 
     private void startVoiceInput(){
-        if(voice==null)return;
+        RuntimeLogger.log(this,"MIC","start requested");
+        if(voice==null){RuntimeLogger.log(this,"MIC","FAIL voice=null");return;}
         if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)!=android.content.pm.PackageManager.PERMISSION_GRANTED){
             setMode("🎙  דבר","נדרשת הרשאת מיקרופון");
             Intent i=new Intent(this,MainActivity.class);
@@ -219,7 +223,18 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     }
 
     @Override public void onText(String text){
-        if(text==null||text.trim().isEmpty())return;
+        RuntimeLogger.log(this,"COMMAND_RECEIVED","text="+(text==null?"<null>":text));
+        if(text==null||text.trim().isEmpty()){RuntimeLogger.log(this,"COMMAND_REJECTED","empty transcript");return;}
+        String normalized=text.trim().toLowerCase(java.util.Locale.ROOT);
+        if(normalized.equals("פתח אינסטגרם")||normalized.equals("תפתח אינסטגרם")||normalized.equals("פתוח אינסטגרם")||normalized.equals("open instagram")){
+            RuntimeLogger.log(this,"FAST_PATH","open_instagram");
+            setMode("⚙  פותח…","פותח את אינסטגרם");
+            boolean ok=ActionEngine.openApp(this,"com.instagram.android");
+            RuntimeLogger.log(this,"FAST_PATH_RESULT","open_instagram="+ok);
+            if(ok) voice.speak("פתחתי את אינסטגרם.",FloatingAgentService.this::startVoiceInput);
+            else voice.speak("לא הצלחתי לפתוח את אינסטגרם. בדוק שהאפליקציה מותקנת.",FloatingAgentService.this::startVoiceInput);
+            return;
+        }
         if(waitingForConfirmation&&pendingActions!=null){
             if(isYes(text)){
                 JSONArray a=pendingActions;
@@ -259,6 +274,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     }
 
     @Override public void onState(String s){
+        RuntimeLogger.log(this,"VOICE_STATE",String.valueOf(s));
         if(s==null)return;
         if(s.contains("מקשיב")||s.equals("מאזין..."))setMode("🎙  מקשיב","מקשיב לך");
         else if(s.contains("מעבד"))setMode("⚙  מבצע…","מעבד את הבקשה");
@@ -359,6 +375,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     }
 
     @Override public void onDestroy(){
+        RuntimeLogger.log(this,"APP","floating_service_onDestroy");
         if(voice!=null){voice.destroy();voice=null;}
         if(wm!=null&&bar!=null){try{wm.removeView(bar);}catch(Exception ignored){}}
         super.onDestroy();
