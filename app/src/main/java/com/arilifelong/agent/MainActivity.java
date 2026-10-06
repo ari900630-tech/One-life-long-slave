@@ -172,7 +172,7 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
     }
 
     private void runActions(JSONArray actions){
-        if(a==null)return;
+        if(actions==null)return;
         for(int i=0;i<actions.length();i++)try{
             JSONObject x=actions.getJSONObject(i); String t=x.optString("type");
             boolean ok=false;
