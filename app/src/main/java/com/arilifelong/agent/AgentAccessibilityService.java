@@ -25,7 +25,7 @@ public class AgentAccessibilityService extends AccessibilityService {
     private long lastAnnouncedAt=0;
     public static AgentAccessibilityService getInstance(){ return instance; }
 
-    @Override public void onServiceConnected(){ super.onServiceConnected(); instance=this; loadDiagnostics(); }
+    @Override public void onServiceConnected(){ super.onServiceConnected(); instance=this; loadDiagnostics(); RuntimeLogger.init(this,"accessibility_service_connected"); RuntimeLogger.log(this,"ACCESSIBILITY","service connected"); }
     private void loadDiagnostics(){
         String saved=getSharedPreferences("agents_runtime",MODE_PRIVATE).getString("diagnostics","");
         if(saved!=null&&!saved.isEmpty()){ diagnostics.clear(); for(String x:saved.split("\\n")) if(!x.isEmpty()) diagnostics.add(x); while(diagnostics.size()>100) diagnostics.remove(0); }
@@ -37,7 +37,8 @@ public class AgentAccessibilityService extends AccessibilityService {
     private String joinDiagnostics(){ StringBuilder b=new StringBuilder(); for(String x:diagnostics){if(b.length()>0)b.append("\\n");b.append(x);} return b.toString(); }
     public List<String> diagnosticsSnapshot(){ return new ArrayList<>(diagnostics.subList(Math.max(0,diagnostics.size()-20),diagnostics.size())); }
     @Override public void onAccessibilityEvent(AccessibilityEvent event){
-        if(event==null)return;
+        if(event==null){RuntimeLogger.log(this,"ACCESSIBILITY_EVENT","null");return;}
+        RuntimeLogger.log(this,"ACCESSIBILITY_EVENT","type="+event.getEventType()+" package="+event.getPackageName());
         int t=event.getEventType();
         if(t!=AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && t!=AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)return;
         if(t==AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && System.currentTimeMillis()-lastAnnouncedAt<1200)return;
@@ -91,6 +92,7 @@ public class AgentAccessibilityService extends AccessibilityService {
         for(int i=0;i<n.getChildCount();i++)collectMatches(n.getChild(i),alternatives,out);
     }
     public boolean clickTextOrDescription(String target){
+        RuntimeLogger.log(this,"ACCESSIBILITY_ACTION","click target="+target);
         for(AccessibilityNodeInfo n:matchingNodes(target)){
             if(n.isClickable()&&n.performAction(AccessibilityNodeInfo.ACTION_CLICK))return true;
             AccessibilityNodeInfo p=n.getParent(); if(p!=null&&p.isClickable()&&p.performAction(AccessibilityNodeInfo.ACTION_CLICK))return true;
