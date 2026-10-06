@@ -226,6 +226,17 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         RuntimeLogger.log(this,"COMMAND_RECEIVED","text="+(text==null?"<null>":text));
         if(text==null||text.trim().isEmpty()){RuntimeLogger.log(this,"COMMAND_REJECTED","empty transcript");return;}
         String normalized=text.trim().toLowerCase(java.util.Locale.ROOT);
+        boolean asksToCloseApp=normalized.matches(".*(תסגור|סגור|סגורי|לסגור|תסגר|סגור את|close|quit|exit).*") &&
+                normalized.matches(".*(אפליקציה|אפליקצייה|app|application|תוכנה).*");
+        if(asksToCloseApp){
+            RuntimeLogger.log(this,"FAST_PATH","close_current_app text="+text);
+            setMode("⚙  סוגר…","סוגר את האפליקציה הנוכחית");
+            boolean ok=ActionEngine.closeCurrentApp();
+            RuntimeLogger.log(this,"FAST_PATH_RESULT","close_current_app="+ok);
+            if(ok) voice.speak("סגרתי את האפליקציה.",null);
+            else voice.speak("לא הצלחתי לסגור את האפליקציה.",FloatingAgentService.this::startVoiceInput);
+            return;
+        }
         boolean mentionsInstagram=(normalized.contains("instagram")||normalized.contains("אינסטגרם"));
         boolean asksToOpenInstagram=mentionsInstagram &&
                 !normalized.contains("סגור") && !normalized.contains("close") && !normalized.contains("צא");
@@ -293,6 +304,8 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             switch(t){
                 case "open_url": if(!ActionEngine.openUrl(this,x.optString("url")))throw new IllegalStateException("open_url failed");break;
                 case "open_app": if(!ActionEngine.openApp(this,x.optString("package")))throw new IllegalStateException("open_app failed: "+x.optString("package"));break;
+                case "close_app": if(!ActionEngine.closeCurrentApp())throw new IllegalStateException("close_app failed");break;
+                case "close_current_app": if(!ActionEngine.closeCurrentApp())throw new IllegalStateException("close_current_app failed");break;
                 case "dial": ActionEngine.dial(this,x.optString("number"));break;
                 case "call": ActionEngine.call(this,x.optString("number"));break;
                 case "sms": ActionEngine.sms(this,x.optString("number"),x.optString("text"));break;
