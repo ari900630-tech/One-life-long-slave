@@ -23,7 +23,8 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
     private boolean ttsReady=false;
     private String pendingSpeech;
     private Runnable pendingSpeechCallback;
-    private final java.util.Map<String,Runnable> speechCallbacks=new java.util.HashMap<>();
+    private final java.util.Map<String,Runnable> speechCallbacks=new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.atomic.AtomicLong speechSequence=new java.util.concurrent.atomic.AtomicLong();
     private volatile boolean recording=false;
     private AudioRecord recorder;
     private Thread recordThread;
@@ -184,8 +185,9 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
 
     private void speakNow(String text,Runnable afterSpeech){
         if(tts==null||text==null||text.isEmpty())return;
-        if(afterSpeech!=null)speechCallbacks.put("agent-he",afterSpeech);
-        int result=tts.speak(text,TextToSpeech.QUEUE_FLUSH,null,"agent-he");
+        String utteranceId="agent-he-"+speechSequence.incrementAndGet();
+        if(afterSpeech!=null)speechCallbacks.put(utteranceId,afterSpeech);
+        int result=tts.speak(text,TextToSpeech.QUEUE_FLUSH,null,utteranceId);
         if(result==TextToSpeech.ERROR&&listener!=null)listener.onState("שגיאה בהשמעה קולית");
     }
 
