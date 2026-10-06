@@ -272,6 +272,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             // פעולה שלא מחזירה boolean מסומנת כהצלחה אם לא נזרקה חריגה.
             result.succeeded++;
         }catch(Exception ignored){result.failed++;}
+        return result;
     }
 
     private void moveOverlay(String position){
