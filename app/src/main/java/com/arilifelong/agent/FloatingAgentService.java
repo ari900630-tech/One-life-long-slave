@@ -226,8 +226,10 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         RuntimeLogger.log(this,"COMMAND_RECEIVED","text="+(text==null?"<null>":text));
         if(text==null||text.trim().isEmpty()){RuntimeLogger.log(this,"COMMAND_REJECTED","empty transcript");return;}
         String normalized=text.trim().toLowerCase(java.util.Locale.ROOT);
-        if(normalized.equals("פתח אינסטגרם")||normalized.equals("תפתח אינסטגרם")||normalized.equals("פתוח אינסטגרם")||normalized.equals("open instagram")){
-            RuntimeLogger.log(this,"FAST_PATH","open_instagram");
+        boolean asksToOpenInstagram=(normalized.contains("instagram")||normalized.contains("אינסטגרם")) &&
+                (normalized.contains("פתח")||normalized.contains("פתוח")||normalized.contains("open")||normalized.contains("תפתח"));
+        if(asksToOpenInstagram){
+            RuntimeLogger.log(this,"FAST_PATH","open_instagram text="+text);
             setMode("⚙  פותח…","פותח את אינסטגרם");
             boolean ok=ActionEngine.openApp(this,"com.instagram.android");
             RuntimeLogger.log(this,"FAST_PATH_RESULT","open_instagram="+ok);
@@ -293,8 +295,8 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 try{Thread.sleep(900);}catch(InterruptedException e){Thread.currentThread().interrupt();}
             }
             switch(t){
-                case "open_url": ActionEngine.openUrl(this,x.optString("url"));break;
-                case "open_app": ActionEngine.openApp(this,x.optString("package"));break;
+                case "open_url": if(!ActionEngine.openUrl(this,x.optString("url")))throw new IllegalStateException("open_url failed");break;
+                case "open_app": if(!ActionEngine.openApp(this,x.optString("package")))throw new IllegalStateException("open_app failed: "+x.optString("package"));break;
                 case "dial": ActionEngine.dial(this,x.optString("number"));break;
                 case "call": ActionEngine.call(this,x.optString("number"));break;
                 case "sms": ActionEngine.sms(this,x.optString("number"),x.optString("text"));break;
