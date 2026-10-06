@@ -178,6 +178,12 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
             boolean ok=false;
             switch(t){
                 case "open_url": ok=ActionEngine.openUrl(this,x.optString("url"));break;
+                case "chrome_new_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.chromeNewTab();break;}
+                case "chrome_close_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.chromeCloseTab();break;}
+                case "chrome_next_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.chromeNextTab();break;}
+                case "chrome_previous_tab": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.chromePreviousTab();break;}
+                case "chrome_clear_search": {AgentAccessibilityService a=AgentAccessibilityService.getInstance();ok=a!=null&&a.chromeClearSearch();break;}
+
                 case "open_app": ok=ActionEngine.openApp(this,x.optString("package"));break;
                 case "dial": ok=ActionEngine.dial(this,x.optString("number"));break;
                 case "call": ok=ActionEngine.call(this,x.optString("number"));break;
