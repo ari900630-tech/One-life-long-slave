@@ -147,8 +147,29 @@ public class AgentAccessibilityService extends AccessibilityService {
     }
     public boolean setText(String text){
         AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return false;
-        AccessibilityNodeInfo target=root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT); if(target==null)return false;
-        Bundle b=new Bundle(); b.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,text);
+        AccessibilityNodeInfo target=root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+        if(target==null) target=findEditable(root);
+        if(target==null)return false;
+        if(!target.isFocused())target.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
+        Bundle b=new Bundle(); b.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,text==null?"":text);
+        return target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,b);
+    }
+    private AccessibilityNodeInfo findEditable(AccessibilityNodeInfo n){
+        if(n==null)return null;
+        if(n.isEditable())return n;
+        for(int i=0;i<n.getChildCount();i++){AccessibilityNodeInfo f=findEditable(n.getChild(i));if(f!=null)return f;}
+        return null;
+    }
+    public boolean chromeNewTab(){ return clickTextOrDescription("New tab|כרטיסייה חדשה|כרטיסיה חדשה|פתח כרטיסייה|New Tab"); }
+    public boolean chromeCloseTab(){ return clickTextOrDescription("Close tab|סגור כרטיסייה|סגור כרטיסיה|Close"); }
+    public boolean chromeNextTab(){ return clickTextOrDescription("Next tab|הכרטיסייה הבאה|כרטיסייה הבאה"); }
+    public boolean chromePreviousTab(){ return clickTextOrDescription("Previous tab|הכרטיסייה הקודמת|כרטיסייה קודמת"); }
+    public boolean chromeClearSearch(){
+        AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return false;
+        AccessibilityNodeInfo target=root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+        if(target==null)target=findEditable(root);
+        if(target==null)return false;
+        Bundle b=new Bundle(); b.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,"");
         return target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,b);
     }
     public boolean scroll(boolean forward){
