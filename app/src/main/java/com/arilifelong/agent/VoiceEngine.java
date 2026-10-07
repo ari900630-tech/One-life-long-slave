@@ -57,6 +57,8 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
         });
     }
 
+    public boolean isRecording(){ return recording; }
+
     public boolean startListening(){
         RuntimeLogger.log(context,"MIC","startListening");
         if(recording)return true;
