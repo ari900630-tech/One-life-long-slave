@@ -35,8 +35,10 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
     private static final int ENCODING=AudioFormat.ENCODING_PCM_16BIT;
     private static final int MAX_RECORD_MS=15000;
     private static final int INITIAL_SILENCE_MS=12000;
-    private static final int END_SILENCE_MS=1200;
-    private static final double SPEECH_RMS=220.0;
+    private static final int END_SILENCE_MS=900;
+    private static final int VAD_CALIBRATION_MS=700;
+    private static final int MIN_SPEECH_MS=220;
+    private static final double MIN_SPEECH_RMS=650.0;
 
     public VoiceEngine(Context c, Listener l){
         context=c.getApplicationContext();
@@ -80,7 +82,7 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
         }
         int[] sources;
         if(android.os.Build.VERSION.SDK_INT>=21){
-            sources=new int[]{MediaRecorder.AudioSource.DEFAULT,MediaRecorder.AudioSource.VOICE_RECOGNITION,MediaRecorder.AudioSource.MIC,MediaRecorder.AudioSource.VOICE_COMMUNICATION};
+            sources=new int[]{MediaRecorder.AudioSource.VOICE_RECOGNITION,MediaRecorder.AudioSource.VOICE_COMMUNICATION,MediaRecorder.AudioSource.DEFAULT,MediaRecorder.AudioSource.MIC};
         }else{
             sources=new int[]{MediaRecorder.AudioSource.DEFAULT,MediaRecorder.AudioSource.MIC};
         }
@@ -146,6 +148,9 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
         long started=System.currentTimeMillis();
         long speechAt=0;
         long lastSpeech=0;
+        double noiseSum=0;
+        int noiseSamples=0;
+        double speechThreshold=MIN_SPEECH_RMS;
         try{
             while(recording && System.currentTimeMillis()-started<MAX_RECORD_MS){
                 int n=recorder.read(samples,0,samples.length);
@@ -153,30 +158,55 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
                 byte[] bytes=new byte[n*2];
                 double sum=0;
                 for(int i=0;i<n;i++){
-                    short s=samples[i];
-                    sum+=(double)s*s;
-                    bytes[i*2]=(byte)(s&0xff);
-                    bytes[i*2+1]=(byte)((s>>8)&0xff);
+                    short sample=samples[i];
+                    sum+=(double)sample*sample;
+                    bytes[i*2]=(byte)(sample&0xff);
+                    bytes[i*2+1]=(byte)((sample>>8)&0xff);
                 }
                 pcm.write(bytes,0,bytes.length);
                 double rms=Math.sqrt(sum/n);
                 long now=System.currentTimeMillis();
-                if(rms>=SPEECH_RMS){
-                    RuntimeLogger.log(context,"MIC_LEVEL","rms="+String.format(Locale.US,"%.1f",rms)+" threshold="+SPEECH_RMS);
-                    if(speechAt==0)speechAt=now;
+
+                if(now-started<=VAD_CALIBRATION_MS && speechAt==0){
+                    noiseSum+=rms;
+                    noiseSamples++;
+                    double noiseFloor=noiseSamples>0?noiseSum/noiseSamples:0;
+                    speechThreshold=Math.max(MIN_SPEECH_RMS,noiseFloor*2.5);
+                    RuntimeLogger.log(context,"MIC_CALIBRATION",
+                            "rms="+String.format(Locale.US,"%.1f",rms)+
+                            " noise="+String.format(Locale.US,"%.1f",noiseFloor)+
+                            " threshold="+String.format(Locale.US,"%.1f",speechThreshold));
+                    continue;
+                }
+
+                if(rms>=speechThreshold){
+                    if(speechAt==0){
+                        speechAt=now;
+                        RuntimeLogger.log(context,"MIC_SPEECH_START",
+                                "rms="+String.format(Locale.US,"%.1f",rms)+
+                                " threshold="+String.format(Locale.US,"%.1f",speechThreshold));
+                    }
                     lastSpeech=now;
                     if(listener!=null)listener.onState("מקשיב...");
                 }else if(speechAt>0 && now-lastSpeech>=END_SILENCE_MS){
-                    break;
+                    if(now-speechAt>=MIN_SPEECH_MS)break;
+                    RuntimeLogger.log(context,"MIC_FALSE_START",
+                            "speech duration="+(now-speechAt)+"ms below minimum");
+                    speechAt=0;
+                    lastSpeech=0;
                 }else if(speechAt==0 && now-started>=INITIAL_SILENCE_MS){
-                    RuntimeLogger.log(context,"MIC_NO_SPEECH","no speech detected after "+INITIAL_SILENCE_MS+"ms; pcmBytes="+pcm.size());
-                    if(listener!=null)listener.onState("לא שמעתי דיבור. נסה לדבר שוב.");
+                    RuntimeLogger.log(context,"MIC_NO_SPEECH",
+                            "no speech detected after "+INITIAL_SILENCE_MS+
+                            "ms; threshold="+String.format(Locale.US,"%.1f",speechThreshold)+
+                            " pcmBytes="+pcm.size());
+                    if(listener!=null)listener.onState("לא שמעתי דיבור. נסה שוב.");
                     return;
                 }
             }
             if(speechAt==0){
-                RuntimeLogger.log(context,"MIC_NO_SPEECH","recording ended without speech; pcmBytes="+pcm.size());
-                if(listener!=null)listener.onState("לא שמעתי דיבור. נסה לדבר שוב.");
+                RuntimeLogger.log(context,"MIC_NO_SPEECH",
+                        "recording ended without speech; pcmBytes="+pcm.size());
+                if(listener!=null)listener.onState("לא שמעתי דיבור. נסה שוב.");
                 return;
             }
             if(listener!=null)listener.onState("מעבד את הדיבור...");
@@ -187,12 +217,18 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
                 @Override public void success(org.json.JSONObject result){
                     String text=result.optString("text","").trim();
                     RuntimeLogger.log(context,"STT_RESULT","text="+text);
-                    if(text.isEmpty()){RuntimeLogger.log(context,"STT_EMPTY","transcription returned empty");if(listener!=null)listener.onState("לא הצלחתי להבין מה נאמר. נסה שוב.");}
-                    else if(listener!=null)listener.onText(text);
+                    if(text.isEmpty()){
+                        RuntimeLogger.log(context,"STT_EMPTY","transcription returned empty");
+                        if(listener!=null)listener.onState("לא הצלחתי להבין מה נאמר. נסה שוב.");
+                    } else if(listener!=null)listener.onText(text);
                 }
-                @Override public void error(String message){RuntimeLogger.log(context,"STT_ERROR",message);if(listener!=null)listener.onState("לא הצלחתי לתמלל את הדיבור: "+message);}
+                @Override public void error(String message){
+                    RuntimeLogger.log(context,"STT_ERROR",message);
+                    if(listener!=null)listener.onState("לא הצלחתי לתמלל את הדיבור: "+message);
+                }
             });
         }catch(Exception e){
+            RuntimeLogger.log(context,"MIC_EXCEPTION","error="+e);
             if(listener!=null)listener.onState("שגיאת מיקרופון: "+e.getClass().getSimpleName());
         }finally{
             stopRecorder();
