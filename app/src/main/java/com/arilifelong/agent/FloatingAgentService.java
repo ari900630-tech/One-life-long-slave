@@ -23,37 +23,23 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     private String notificationText="הסוכן הצף פעיל";
     private final BroadcastReceiver screenReceiver=new BroadcastReceiver(){
         @Override public void onReceive(Context context,Intent intent){
-            if(intent==null)return;
+            if(intent==null||capabilityAnnounced)return;
             String s=intent.getStringExtra("suggestions");
             if(s==null||s.trim().isEmpty())return;
-            String key=s.trim();
-            if(key.equals(lastCapabilityKey)){
-                RuntimeLogger.log(FloatingAgentService.this,"SCREEN_CAPABILITY","ignored duplicate screen capability");
-                return;
-            }
-            lastCapabilityKey=key;
-            if(voice==null||voice.isRecording()){
-                RuntimeLogger.log(FloatingAgentService.this,"SCREEN_CAPABILITY","skipped because microphone is active");
-                return;
-            }
+            if(voice==null||voice.isRecording())return;
             try{
                 JSONArray a=new JSONArray(s);
-                StringBuilder b=new StringBuilder("במסך הזה אני יכול ");
-                int added=0;
-                for(int j=0;j<a.length()&&added<6;j++){
-                    JSONObject x=a.optJSONObject(j);
-                    if(x==null)continue;
-                    String label=x.optString("label","").trim();
-                    if(label.isEmpty())continue;
-                    if(added>0)b.append(", ");
-                    b.append(label);
-                    added++;
-                }
-                if(added>0&&voice!=null) voice.speak(b.toString()+". תגיד לי מה לעשות ואני אבצע.",FloatingAgentService.this::startVoiceInput);
-            }catch(Exception e){ RuntimeLogger.log(FloatingAgentService.this,"SCREEN_CAPABILITY_ERROR",e.toString()); }
+                if(a.length()==0)return;
+                capabilityAnnounced=true;
+                voice.speak("אני יכול לפתוח, ללחוץ ולגלול. אמור לי: פתח, לחץ או גלול.",FloatingAgentService.this::startVoiceInput);
+            }catch(Exception e){
+                capabilityAnnounced=false;
+                RuntimeLogger.log(FloatingAgentService.this,"SCREEN_CAPABILITY_ERROR",e.toString());
+            }
         }
     };
     private String lastCapabilityKey="";
+    private boolean capabilityAnnounced=false;
 
     private WindowManager.LayoutParams overlayLp;
     private float downX,downY; private int startX,startY; private boolean dragging;
