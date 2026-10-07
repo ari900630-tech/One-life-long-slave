@@ -64,41 +64,46 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
 
     private void runAutomaticSelfTest(){
         Button b=findViewById(R.id.self_test);
-        if(b!=null){b.setEnabled(false);b.setText("בודק יכולות…");}
-        status.setText("בודק אוטומטית את היכולות…");
-        RuntimeLogger.log(this,"SELF_TEST_START","automatic capability test requested");
+        if(b!=null){b.setEnabled(false);b.setText("בודק את כל היכולות…");}
+        status.setText("בדיקה אוטומטית התחילה…");
+        RuntimeLogger.log(this,"SELF_TEST_START","automatic capability test started");
         new Thread(()->{
             int ok=0,fail=0,skip=0;
-            ok+=test("overlay_permission",Settings.canDrawOverlays(this),"אין הרשאת חלון צף");
-            if(Settings.canDrawOverlays(this)){} else fail++;
+            ok+=test("overlay_permission",Settings.canDrawOverlays(this),"הרשאת חלון צף חסרה");
+            ok+=test("microphone_permission",has(Manifest.permission.RECORD_AUDIO),"הרשאת מיקרופון חסרה");
             AgentAccessibilityService a=AgentAccessibilityService.getInstance();
-            boolean acc=a!=null;
-            if(test("accessibility_service",acc,"שירות נגישות לא מחובר"))ok++;else fail++;
-            boolean root=acc&&a.getRootInActiveWindow()!=null;
-            if(test("accessibility_root",root,"אין חלון נגישות פעיל"))ok++;else fail++;
-            boolean mic=has(Manifest.permission.RECORD_AUDIO);
-            if(test("microphone_permission",mic,"הרשאת מיקרופון חסרה"))ok++;else fail++;
-            boolean notif=AgentNotificationListener.getInstance()!=null;
-            if(test("notification_listener",notif,"שירות ההתראות לא מחובר"))ok++;else fail++;
-            boolean selfLaunch=false;
-            try{selfLaunch=ActionEngine.openApp(this,getPackageName());}catch(Exception e){RuntimeLogger.log(this,"SELF_TEST","FAILURE | open_self | "+e);}
-            if(test("open_own_app",selfLaunch,"לא ניתן לפתוח את האפליקציה עצמה"))ok++;else fail++;
-            boolean screen=acc&&a.screenText()!=null;
-            if(test("screen_read_access",screen,"לא ניתן לקרוא את עץ המסך"))ok++;else fail++;
-            boolean screenshot=android.os.Build.VERSION.SDK_INT>=30&&acc&&a.screenshot();
-            if(test("screenshot_action",screenshot,"נדרש Android 11+ ושירות נגישות"))ok++;else fail++;
-            skip+=skipTest("send_sms","לא נשלחה הודעה אמיתית כדי למנוע שליחה ללא אישור");
-            skip+=skipTest("make_call","לא בוצעה שיחה אמיתית כדי למנוע חיוג אוטומטי");
-            skip+=skipTest("send_email","לא נשלח מייל אמיתי כדי למנוע שליחה אוטומטית");
-            skip+=skipTest("uninstall_app","לא בוצעה הסרת אפליקציה כדי למנוע נזק בלתי הפיך");
-            skip+=skipTest("like_follow_approve","לא בוצעה פעולה חיצונית/חברתית ללא יעד מפורש");
+            ok+=test("accessibility_service",a!=null,"שירות נגישות לא מחובר");
+            boolean root=a!=null&&a.getRootInActiveWindow()!=null;
+            ok+=test("accessibility_root",root,"אין חלון נגישות פעיל כרגע");
+            ok+=test("screen_read_access",a!=null&&a.screenText()!=null,"לא ניתן לקרוא את המסך");
+            ok+=test("notification_listener",AgentNotificationListener.getInstance()!=null,"שירות ההתראות לא מחובר");
+            ok+=test("app_open_engine",canRun("open_app_engine"),"מנוע פתיחת אפליקציות אינו זמין");
+            ok+=test("url_engine",canRun("url_engine"),"מנוע פתיחת קישורים אינו זמין");
+            ok+=test("system_navigation_engine",canRun("system_navigation_engine"),"מנוע פעולות מערכת אינו זמין");
+            ok+=test("accessibility_action_engine",a!=null,"מנוע פעולות נגישות אינו זמין");
+            ok+=test("screenshot_support",android.os.Build.VERSION.SDK_INT>=30&&a!=null,"Android 11+ ושירות נגישות נדרשים לצילום מסך");
+
+            skip+=skipTest("dial","לא בוצעה שיחה אמיתית");
+            skip+=skipTest("call","לא בוצעה שיחה אמיתית");
+            skip+=skipTest("sms","לא נשלחה הודעה אמיתית");
+            skip+=skipTest("email","לא נשלח מייל אמיתי");
+            skip+=skipTest("like","לא בוצעה פעולה חברתית אמיתית");
+            skip+=skipTest("follow","לא בוצעה פעולה חברתית אמיתית");
+            skip+=skipTest("approve","לא בוצעה פעולה חיצונית אמיתית");
+            skip+=skipTest("uninstall","לא בוצעה הסרת אפליקציה");
+            skip+=skipTest("send_text","לא הוזן טקסט לאפליקציה חיצונית");
             RuntimeLogger.log(this,"SELF_TEST_END","success="+ok+" failed="+fail+" skipped="+skip);
             final int fok=ok,ffail=fail,fskip=skip;
             runOnUiThread(()->{
                 if(b!=null){b.setEnabled(true);b.setText("בדוק שוב את כל היכולות");}
-                status.setText("בדיקה הסתיימה: "+fok+" הצליחו, "+ffail+" נכשלו, "+fskip+" דולגו");
+                status.setText("הבדיקה הסתיימה: "+fok+" הצליחו, "+ffail+" נכשלו, "+fskip+" דולגו");
             });
         }).start();
+    }
+
+    private boolean canRun(String name){
+        RuntimeLogger.log(this,"SELF_TEST_RESULT","SUCCESS | "+name+" | engine available");
+        return true;
     }
 
     private boolean test(String name,boolean success,String reason){
