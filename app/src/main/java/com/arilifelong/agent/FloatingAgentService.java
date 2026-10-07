@@ -53,7 +53,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         voice=new VoiceEngine(getApplicationContext(),this);
         showBar();
         RuntimeLogger.log(this,"APP","initial_greeting_requested");
-        voice.speak("שלום, אני העוזר האישי שלך. מה תרצה שאעשה עבורך היום?", FloatingAgentService.this::startVoiceInput);
+        voice.speak("שלום. פשוט תגיד לי מה לעשות, למשל: פתח ווטסאפ או גלול למטה.", FloatingAgentService.this::startVoiceInput);
         try{ registerReceiver(screenReceiver,new IntentFilter("com.arilifelong.agent.SCREEN_CHANGED")); }catch(Exception ignored){}
     }
 
@@ -122,7 +122,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         root.addView(info,new LinearLayout.LayoutParams(0,46,1));
 
         talk=new Button(this);
-        talk.setText("🎙  דבר");
+        talk.setText("🎙  דבר איתי");
         talk.setTextSize(13);
         talk.setTextColor(Color.WHITE);
         talk.setAllCaps(false);
@@ -193,7 +193,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             startActivity(i);
             return;
         }
-        setMode("🎙  מדבר איתך","מקשיב לך");
+        setMode("🎙  מקשיב","תגיד לי מה לעשות");
         voice.startListening();
     }
 
@@ -270,7 +270,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             @Override public void success(JSONObject result){
                 JSONArray actions=result.optJSONArray("actions");
                 if(actions==null||actions.length()==0){
-                    voice.speak(result.optString("reply","לא זיהיתי פעולה לביצוע."),FloatingAgentService.this::startVoiceInput);
+                    voice.speak("לא זיהיתי. תגיד פשוט מה לעשות.",FloatingAgentService.this::startVoiceInput);
                     return;
                 }
                 pendingActions=actions;
@@ -278,17 +278,17 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 RuntimeLogger.log(FloatingAgentService.this,"AUTO_EXECUTE","actions="+actions.length()+" command="+text);
                 ActionResult ar=runActions(actions);
                 if(ar.failed==0){
-                    setMode("●  שומע…","בוצע. מוכן לפקודה הבאה");
-                    voice.speak(result.optString("reply","בוצע."),FloatingAgentService.this::startVoiceInput);
+                    setMode("●  מוכן","בוצע. תגיד מה עכשיו");
+                    voice.speak("בוצע.",FloatingAgentService.this::startVoiceInput);
                 }else{
-                    setMode("⚠  פעולה נכשלה","ממשיך להאזין");
-                    voice.speak("ביצעתי מה שיכולתי, אבל פעולה אחת נכשלה. אפשר לתת את הפקודה הבאה.",FloatingAgentService.this::startVoiceInput);
+                    setMode("⚠  נסה שוב","תגיד את הפעולה הבאה");
+                    voice.speak("בוצע חלקית. תגיד את הפעולה הבאה.",FloatingAgentService.this::startVoiceInput);
                 }
             }
             @Override public void error(String message){
                 setMode("⚠  לא הצלחתי","הפעולה נכשלה — ממשיך להקשיב");
                 showErrorCopy(message,text);
-                voice.speak("לא הצלחתי לבצע את זה. מה תרצה שאעשה עכשיו?",FloatingAgentService.this::startVoiceInput);
+                voice.speak("לא הצלחתי. נסה שוב בקצרה.",FloatingAgentService.this::startVoiceInput);
             }
         });
     }
