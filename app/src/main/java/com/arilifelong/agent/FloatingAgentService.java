@@ -26,6 +26,10 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             if(intent==null)return;
             String s=intent.getStringExtra("suggestions");
             if(s==null||s.trim().isEmpty())return;
+            if(voice==null||voice.isRecording()){
+                RuntimeLogger.log(FloatingAgentService.this,"SCREEN_CAPABILITY","skipped because microphone is active");
+                return;
+            }
             try{
                 JSONArray a=new JSONArray(s);
                 StringBuilder b=new StringBuilder("במסך הזה אני יכול ");
@@ -39,7 +43,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                     b.append(label);
                     added++;
                 }
-                if(added>0&&voice!=null) voice.speak(b.toString()+". תגיד לי מה לעשות ואני אבצע.",null);
+                if(added>0&&voice!=null) voice.speak(b.toString()+". תגיד לי מה לעשות ואני אבצע.",FloatingAgentService.this::startVoiceInput);
             }catch(Exception ignored){}
         }
     };
