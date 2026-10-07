@@ -12,6 +12,7 @@ import android.widget.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.ArrayList;
+import java.util.Locale;
 
 public class MainActivity extends Activity implements VoiceEngine.Listener {
     private static final int OVERLAY_REQUEST=1001, PERM_REQUEST=1002, VOICE_REQUEST=1003;
@@ -29,6 +30,8 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         findViewById(R.id.permissions).setOnClickListener(v->requestPermissions());
         findViewById(R.id.talk).setOnClickListener(v->startVoiceInput());
         copyError=findViewById(R.id.copy_error); copyError.setOnClickListener(v->copyLastError());
+        findViewById(R.id.self_test).setOnClickListener(v->runAutomaticSelfTest());
+        findViewById(R.id.copy_logs).setOnClickListener(v->copyAllLogs());
         findViewById(R.id.agent_all).setOnClickListener(v->setAgentMode("all"));
         findViewById(R.id.agent_instagram).setOnClickListener(v->setAgentMode("instagram"));
         findViewById(R.id.agent_settings).setOnClickListener(v->setAgentMode("settings"));
@@ -47,6 +50,67 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
     private void setAgentMode(String mode){ agentMode=mode; String label="all".equals(mode)?"כללי":"instagram".equals(mode)?"אינסטגרם":"settings".equals(mode)?"הגדרות":"צ׳אטים"; status.setText("סוכן "+label+" פעיל"); }
     private void copyLastError(){ if(lastErrorLog.isEmpty())return; android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE); cm.setPrimaryClip(android.content.ClipData.newPlainText("Agent error log",lastErrorLog)); if(copyError!=null)copyError.setText("הועתק"); }
     private void showErrorLog(String log){ lastErrorLog=log==null?"שגיאה לא ידועה":log; if(copyError!=null){copyError.setVisibility(android.view.View.VISIBLE);copyError.setText("העתק לוג שגיאה");} }
+
+    private void copyAllLogs(){
+        String logs=RuntimeLogger.readAll(this);
+        android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
+        if(cm!=null){
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("Agent runtime logs",logs));
+            Button b=findViewById(R.id.copy_logs);
+            if(b!=null){b.setText("הועתק"); b.postDelayed(()->b.setText("העתק את כל הלוגים"),1800);}
+            RuntimeLogger.log(this,"LOG_COPY","copied_all_logs_chars="+logs.length());
+        }
+    }
+
+    private void runAutomaticSelfTest(){
+        Button b=findViewById(R.id.self_test);
+        if(b!=null){b.setEnabled(false);b.setText("בודק יכולות…");}
+        status.setText("בודק אוטומטית את היכולות…");
+        RuntimeLogger.log(this,"SELF_TEST_START","automatic capability test requested");
+        new Thread(()->{
+            int ok=0,fail=0,skip=0;
+            ok+=test("overlay_permission",Settings.canDrawOverlays(this),"אין הרשאת חלון צף");
+            if(Settings.canDrawOverlays(this)){} else fail++;
+            AgentAccessibilityService a=AgentAccessibilityService.getInstance();
+            boolean acc=a!=null;
+            if(test("accessibility_service",acc,"שירות נגישות לא מחובר"))ok++;else fail++;
+            boolean root=acc&&a.getRootInActiveWindow()!=null;
+            if(test("accessibility_root",root,"אין חלון נגישות פעיל"))ok++;else fail++;
+            boolean mic=has(Manifest.permission.RECORD_AUDIO);
+            if(test("microphone_permission",mic,"הרשאת מיקרופון חסרה"))ok++;else fail++;
+            boolean notif=AgentNotificationListener.getInstance()!=null;
+            if(test("notification_listener",notif,"שירות ההתראות לא מחובר"))ok++;else fail++;
+            boolean selfLaunch=false;
+            try{selfLaunch=ActionEngine.openApp(this,getPackageName());}catch(Exception e){RuntimeLogger.log(this,"SELF_TEST","FAILURE | open_self | "+e);}
+            if(test("open_own_app",selfLaunch,"לא ניתן לפתוח את האפליקציה עצמה"))ok++;else fail++;
+            boolean screen=acc&&a.screenText()!=null;
+            if(test("screen_read_access",screen,"לא ניתן לקרוא את עץ המסך"))ok++;else fail++;
+            boolean screenshot=android.os.Build.VERSION.SDK_INT>=30&&acc&&a.screenshot();
+            if(test("screenshot_action",screenshot,"נדרש Android 11+ ושירות נגישות"))ok++;else fail++;
+            skip+=skipTest("send_sms","לא נשלחה הודעה אמיתית כדי למנוע שליחה ללא אישור");
+            skip+=skipTest("make_call","לא בוצעה שיחה אמיתית כדי למנוע חיוג אוטומטי");
+            skip+=skipTest("send_email","לא נשלח מייל אמיתי כדי למנוע שליחה אוטומטית");
+            skip+=skipTest("uninstall_app","לא בוצעה הסרת אפליקציה כדי למנוע נזק בלתי הפיך");
+            skip+=skipTest("like_follow_approve","לא בוצעה פעולה חיצונית/חברתית ללא יעד מפורש");
+            RuntimeLogger.log(this,"SELF_TEST_END","success="+ok+" failed="+fail+" skipped="+skip);
+            final int fok=ok,ffail=fail,fskip=skip;
+            runOnUiThread(()->{
+                if(b!=null){b.setEnabled(true);b.setText("בדוק שוב את כל היכולות");}
+                status.setText("בדיקה הסתיימה: "+fok+" הצליחו, "+ffail+" נכשלו, "+fskip+" דולגו");
+            });
+        }).start();
+    }
+
+    private boolean test(String name,boolean success,String reason){
+        if(success){RuntimeLogger.log(this,"SELF_TEST_RESULT","SUCCESS | "+name+" | ok");return true;}
+        RuntimeLogger.log(this,"SELF_TEST_RESULT","FAILURE | "+name+" | "+reason);
+        return false;
+    }
+
+    private int skipTest(String name,String reason){
+        RuntimeLogger.log(this,"SELF_TEST_RESULT","SKIPPED | "+name+" | "+reason);
+        return 1;
+    }
 
     private void startConversation(){
         voice.speak("שלום, אני הסוכן שלך. מה תרצה שאעשה עכשיו?", this::startVoiceInput);
