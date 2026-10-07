@@ -26,6 +26,12 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             if(intent==null)return;
             String s=intent.getStringExtra("suggestions");
             if(s==null||s.trim().isEmpty())return;
+            String key=s.trim();
+            if(key.equals(lastCapabilityKey)){
+                RuntimeLogger.log(FloatingAgentService.this,"SCREEN_CAPABILITY","ignored duplicate screen capability");
+                return;
+            }
+            lastCapabilityKey=key;
             if(voice==null||voice.isRecording()){
                 RuntimeLogger.log(FloatingAgentService.this,"SCREEN_CAPABILITY","skipped because microphone is active");
                 return;
@@ -44,9 +50,10 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                     added++;
                 }
                 if(added>0&&voice!=null) voice.speak(b.toString()+". תגיד לי מה לעשות ואני אבצע.",FloatingAgentService.this::startVoiceInput);
-            }catch(Exception ignored){}
+            }catch(Exception e){ RuntimeLogger.log(FloatingAgentService.this,"SCREEN_CAPABILITY_ERROR",e.toString()); }
         }
     };
+    private String lastCapabilityKey="";
 
     private WindowManager.LayoutParams overlayLp;
     private float downX,downY; private int startX,startY; private boolean dragging;
