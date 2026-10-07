@@ -155,7 +155,8 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 -1,WindowManager.LayoutParams.WRAP_CONTENT,type,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT);
-        lp.gravity=Gravity.TOP|Gravity.CENTER_HORIZONTAL;
+        lp.gravity=Gravity.TOP|Gravity.LEFT;
+        lp.x=0;
         lp.y=72;
         overlayLp=lp;
 
@@ -211,9 +212,9 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         WindowManager.LayoutParams cp=new WindowManager.LayoutParams(
                 -1,WindowManager.LayoutParams.WRAP_CONTENT,
                 Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT);
-        cp.gravity=Gravity.TOP|Gravity.CENTER_HORIZONTAL; cp.y=128;
+        cp.gravity=Gravity.TOP|Gravity.LEFT; cp.x=0; cp.y=128;
         try{wm.addView(chatPanel,cp);}catch(Exception e){RuntimeLogger.log(this,"CHAT_ERROR","add_panel="+e);}
         chatPanel.setVisibility(View.GONE);
     }
@@ -223,8 +224,20 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         boolean show=chatPanel.getVisibility()!=View.VISIBLE;
         chatPanel.setVisibility(show?View.VISIBLE:View.GONE);
         if(chatToggle!=null)chatToggle.setText(show?"סגור":"צ׳אט");
-        if(show&&chatInput!=null){chatInput.requestFocus();
-            ((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(chatInput,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);}
+        if(wm!=null && chatPanel!=null){
+            try{
+                WindowManager.LayoutParams cp=(WindowManager.LayoutParams)chatPanel.getLayoutParams();
+                cp.flags=show?WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS:WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
+                wm.updateViewLayout(chatPanel,cp);
+            }catch(Exception e){RuntimeLogger.log(this,"CHAT_ERROR","focus_update="+e);}
+        }
+        if(show&&chatInput!=null){
+            chatInput.postDelayed(()->{
+                chatInput.requestFocus();
+                android.view.inputmethod.InputMethodManager imm=(android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);
+                if(imm!=null)imm.showSoftInput(chatInput,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+            },150);
+        }
     }
 
     private void sendChatText(){
@@ -451,9 +464,9 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
 
     private void moveOverlay(String position){
         if(overlayLp==null||wm==null||bar==null)return;
-        if("bottom".equalsIgnoreCase(position)||"למטה".equals(position)){ overlayLp.gravity=Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL; overlayLp.y=24; }
-        else if("top".equalsIgnoreCase(position)||"למעלה".equals(position)){ overlayLp.gravity=Gravity.TOP|Gravity.CENTER_HORIZONTAL; overlayLp.y=80; }
-        else { overlayLp.gravity=Gravity.TOP|Gravity.CENTER_HORIZONTAL; overlayLp.y=Math.max(8,overlayLp.y); }
+        if("bottom".equalsIgnoreCase(position)||"למטה".equals(position)){ overlayLp.gravity=Gravity.BOTTOM|Gravity.LEFT; overlayLp.x=0; overlayLp.y=24; }
+        else if("top".equalsIgnoreCase(position)||"למעלה".equals(position)){ overlayLp.gravity=Gravity.TOP|Gravity.LEFT; overlayLp.x=0; overlayLp.y=80; }
+        else { overlayLp.gravity=Gravity.TOP|Gravity.LEFT; overlayLp.y=Math.max(8,overlayLp.y); }
         try{wm.updateViewLayout(bar,overlayLp);}catch(Exception ignored){}
     }
 
