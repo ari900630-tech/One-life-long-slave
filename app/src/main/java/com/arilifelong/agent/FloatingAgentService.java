@@ -16,6 +16,9 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     private View bar;
     private TextView status;
     private Button talk;
+    private Button chatToggle;
+    private LinearLayout chatPanel;
+    private EditText chatInput;
     private VoiceEngine voice;
     private static final String CHANNEL="agent_floating";
     private static final int NOTIFICATION_ID=7;
@@ -132,6 +135,16 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         talk.setOnClickListener(v->startVoiceInput());
         root.addView(talk,new LinearLayout.LayoutParams(112,46));
 
+        chatToggle=new Button(this);
+        chatToggle.setText("צ׳אט");
+        chatToggle.setTextSize(12);
+        chatToggle.setTextColor(Color.rgb(45,46,62));
+        chatToggle.setAllCaps(false);
+        chatToggle.setBackground(bg(Color.rgb(242,243,248),24));
+        chatToggle.setMinHeight(46);
+        chatToggle.setOnClickListener(v->toggleChat());
+        root.addView(chatToggle,new LinearLayout.LayoutParams(72,46));
+
         TextView close=label("×",25,Color.rgb(120,121,135));
         close.setGravity(Gravity.CENTER);
         close.setOnClickListener(v->stopSelf());
@@ -168,6 +181,59 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         info.setOnTouchListener(dragListener);
         wm.addView(root,lp);
         bar=root;
+        createChatPanel();
+    }
+
+    private void createChatPanel(){
+        if(wm==null||!Settings.canDrawOverlays(this))return;
+        chatPanel=new LinearLayout(this);
+        chatPanel.setOrientation(LinearLayout.HORIZONTAL);
+        chatPanel.setGravity(Gravity.CENTER_VERTICAL);
+        chatPanel.setPadding(10,8,10,8);
+        GradientDrawable shell=bg(Color.WHITE,28);
+        shell.setStroke(1,Color.rgb(232,234,242));
+        chatPanel.setBackground(shell);
+        chatPanel.setElevation(16f);
+        chatInput=new EditText(this);
+        chatInput.setSingleLine(true);
+        chatInput.setHint("כתוב לסוכן מה לעשות…");
+        chatInput.setTextSize(14);
+        chatInput.setTextColor(Color.rgb(28,29,43));
+        chatInput.setHintTextColor(Color.rgb(140,142,154));
+        chatInput.setGravity(Gravity.CENTER_VERTICAL|Gravity.RIGHT);
+        Button send=new Button(this);
+        send.setText("שלח"); send.setTextSize(12); send.setTextColor(Color.WHITE); send.setAllCaps(false);
+        send.setBackground(bg(Color.rgb(103,87,217),22)); send.setMinHeight(42);
+        send.setOnClickListener(v->sendChatText());
+        chatInput.setOnEditorActionListener((v,id,event)->{sendChatText();return true;});
+        chatPanel.addView(chatInput,new LinearLayout.LayoutParams(0,52,1));
+        chatPanel.addView(send,new LinearLayout.LayoutParams(70,46));
+        WindowManager.LayoutParams cp=new WindowManager.LayoutParams(
+                -1,WindowManager.LayoutParams.WRAP_CONTENT,
+                Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT);
+        cp.gravity=Gravity.TOP|Gravity.CENTER_HORIZONTAL; cp.y=128;
+        try{wm.addView(chatPanel,cp);}catch(Exception e){RuntimeLogger.log(this,"CHAT_ERROR","add_panel="+e);}
+        chatPanel.setVisibility(View.GONE);
+    }
+
+    private void toggleChat(){
+        if(chatPanel==null)return;
+        boolean show=chatPanel.getVisibility()!=View.VISIBLE;
+        chatPanel.setVisibility(show?View.VISIBLE:View.GONE);
+        if(chatToggle!=null)chatToggle.setText(show?"סגור":"צ׳אט");
+        if(show&&chatInput!=null){chatInput.requestFocus();
+            ((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(chatInput,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);}
+    }
+
+    private void sendChatText(){
+        if(chatInput==null)return;
+        String text=chatInput.getText().toString().trim();
+        if(text.isEmpty())return;
+        chatInput.setText("");
+        RuntimeLogger.log(this,"CHAT_COMMAND","text="+text);
+        onText(text);
     }
 
     private void showErrorCopy(String error,String command){
