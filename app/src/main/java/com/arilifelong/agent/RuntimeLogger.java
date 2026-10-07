@@ -53,4 +53,34 @@ public final class RuntimeLogger {
         }catch(Exception ignored){}
     }
     public static void log(Context c,String event){log(c,event,"");}
+    public static String readAll(Context c){
+        if(c==null)return "";
+        synchronized(LOCK){
+            StringBuilder b=new StringBuilder();
+            appendFileTo(c,"agent-runtime.log",b);
+            appendFileTo(c,"agent-runtime.log.old",b);
+            if(b.length()==0)b.append("אין לוגים עדיין.");
+            return b.toString();
+        }
+    }
+    public static String readFailures(Context c){
+        if(c==null)return "";
+        synchronized(LOCK){
+            StringBuilder b=new StringBuilder();
+            appendFileTo(c,"agent-failures.log",b);
+            appendFileTo(c,"agent-failures.log.old",b);
+            if(b.length()==0)b.append("אין שגיאות מתועדות.");
+            return b.toString();
+        }
+    }
+    private static void appendFileTo(Context c,String name,StringBuilder out){
+        try{
+            File f=new File(c.getFilesDir(),name);
+            if(!f.exists())return;
+            java.io.BufferedReader br=new java.io.BufferedReader(new java.io.FileReader(f));
+            String line;
+            while((line=br.readLine())!=null){out.append(line).append('\n');}
+            br.close();
+        }catch(Exception e){out.append("LOGGER_READ_ERROR | ").append(name).append(" | ").append(e).append('\n');}
+    }
 }
