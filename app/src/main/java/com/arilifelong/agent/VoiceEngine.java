@@ -240,6 +240,7 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
     private void speakNow(String text,Runnable afterSpeech){
         if(tts==null||text==null||text.isEmpty())return;
         String utteranceId="agent-he-"+speechSequence.incrementAndGet();
+        speechCallbacks.clear();
         if(afterSpeech!=null)speechCallbacks.put(utteranceId,afterSpeech);
         int result=tts.speak(text,TextToSpeech.QUEUE_FLUSH,null,utteranceId);
         RuntimeLogger.log(context,"TTS_SUBMIT","result="+result+" id="+utteranceId);
