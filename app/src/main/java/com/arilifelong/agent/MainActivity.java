@@ -69,19 +69,19 @@ public class MainActivity extends Activity implements VoiceEngine.Listener {
         RuntimeLogger.log(this,"SELF_TEST_START","automatic capability test started");
         new Thread(()->{
             int ok=0,fail=0,skip=0;
-            ok+=test("overlay_permission",Settings.canDrawOverlays(this),"הרשאת חלון צף חסרה");
-            ok+=test("microphone_permission",has(Manifest.permission.RECORD_AUDIO),"הרשאת מיקרופון חסרה");
+            if(test("overlay_permission",Settings.canDrawOverlays(this),"הרשאת חלון צף חסרה"))ok++;else fail++;
+            if(test("microphone_permission",has(Manifest.permission.RECORD_AUDIO),"הרשאת מיקרופון חסרה"))ok++;else fail++;
             AgentAccessibilityService a=AgentAccessibilityService.getInstance();
-            ok+=test("accessibility_service",a!=null,"שירות נגישות לא מחובר");
+            if(test("accessibility_service",a!=null,"שירות נגישות לא מחובר"))ok++;else fail++;
             boolean root=a!=null&&a.getRootInActiveWindow()!=null;
-            ok+=test("accessibility_root",root,"אין חלון נגישות פעיל כרגע");
-            ok+=test("screen_read_access",a!=null&&a.screenText()!=null,"לא ניתן לקרוא את המסך");
-            ok+=test("notification_listener",AgentNotificationListener.getInstance()!=null,"שירות ההתראות לא מחובר");
-            ok+=test("app_open_engine",canRun("open_app_engine"),"מנוע פתיחת אפליקציות אינו זמין");
-            ok+=test("url_engine",canRun("url_engine"),"מנוע פתיחת קישורים אינו זמין");
-            ok+=test("system_navigation_engine",canRun("system_navigation_engine"),"מנוע פעולות מערכת אינו זמין");
-            ok+=test("accessibility_action_engine",a!=null,"מנוע פעולות נגישות אינו זמין");
-            ok+=test("screenshot_support",android.os.Build.VERSION.SDK_INT>=30&&a!=null,"Android 11+ ושירות נגישות נדרשים לצילום מסך");
+            if(test("accessibility_root",root,"אין חלון נגישות פעיל כרגע"))ok++;else fail++;
+            if(test("screen_read_access",a!=null&&a.screenText()!=null,"לא ניתן לקרוא את המסך"))ok++;else fail++;
+            if(test("notification_listener",AgentNotificationListener.getInstance()!=null,"שירות ההתראות לא מחובר"))ok++;else fail++;
+            if(test("app_open_engine",canRun("open_app_engine"),"מנוע פתיחת אפליקציות אינו זמין"))ok++;else fail++;
+            if(test("url_engine",canRun("url_engine"),"מנוע פתיחת קישורים אינו זמין"))ok++;else fail++;
+            if(test("system_navigation_engine",canRun("system_navigation_engine"),"מנוע פעולות מערכת אינו זמין"))ok++;else fail++;
+            if(test("accessibility_action_engine",a!=null,"מנוע פעולות נגישות אינו זמין"))ok++;else fail++;
+            if(test("screenshot_support",android.os.Build.VERSION.SDK_INT>=30&&a!=null,"Android 11+ ושירות נגישות נדרשים לצילום מסך"))ok++;else fail++;
 
             skip+=skipTest("dial","לא בוצעה שיחה אמיתית");
             skip+=skipTest("call","לא בוצעה שיחה אמיתית");
