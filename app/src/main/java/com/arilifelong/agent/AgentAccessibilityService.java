@@ -23,6 +23,14 @@ public class AgentAccessibilityService extends AccessibilityService {
     private final Handler handler = new Handler();
     private String lastAnnouncedScreen="";
     private long lastAnnouncedAt=0;
+    public boolean isInstagramActive(){
+        try{
+            android.view.accessibility.AccessibilityNodeInfo root=getRootInActiveWindow();
+            if(root==null||root.getPackageName()==null)return false;
+            return "com.instagram.android".contentEquals(root.getPackageName());
+        }catch(Exception e){return false;}
+    }
+
     public static AgentAccessibilityService getInstance(){ return instance; }
 
     @Override public void onServiceConnected(){ super.onServiceConnected(); instance=this; loadDiagnostics(); RuntimeLogger.init(this,"accessibility_service_connected"); RuntimeLogger.log(this,"ACCESSIBILITY","service connected"); }
