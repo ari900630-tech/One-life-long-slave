@@ -110,6 +110,20 @@ function normalizeHeCommand(input){
  return null;
 }
 const INSTAGRAM_ACTION_TYPES=new Set(["open_app","instagram_action","click_text","click_content_description","click_role","type_text","send_text","long_click_text","tap","long_click","swipe","swipe_direction","scroll","scroll_repeat","scroll_until_text","click_repeat","screen_info","screenshot","back","like","follow","approve","open_chat_menu","pin","press_send"]);
+function normalizeSpokenHebrew(input){
+ let s=String(input||"").replace(/\s+/g," ").trim();
+ const corrections=[
+  [/נסטגרם/giu,"אינסטגרם"],
+  [/עוגבים/giu,"עוקבים"],
+  [/עוגב/giu,"עוקב"],
+  [/תשתובדור/giu,"תבדוק"],
+  [/תשתובדוק/giu,"תבדוק"],
+  [/תישתובדור/giu,"תבדוק"],
+  [/תבדוקק/giu,"תבדוק"]
+ ];
+ for(const [pattern,replacement] of corrections)s=s.replace(pattern,replacement);
+ return s;
+}
 function extractInstagramSearchQuery(input){
  const s=String(input||"").replace(/[!?.,;؛،]/g," ").replace(/\s+/g," ").trim();
  if(!s)return "";
@@ -122,7 +136,8 @@ function extractInstagramSearchQuery(input){
  return "";
 }
 function repairActions(actions,userText){
- const searchQuery=extractInstagramSearchQuery(userText);
+ const normalizedUserText=normalizeSpokenHebrew(userText);
+ const searchQuery=extractInstagramSearchQuery(normalizedUserText);
  if(searchQuery)return [
   {type:"open_app",package:"com.instagram.android"},
   {type:"instagram_action",action:"search"},
@@ -131,7 +146,7 @@ function repairActions(actions,userText){
   {type:"instagram_action",action:"wait",value:"300"},
   {type:"instagram_action",action:"submit_search",value:searchQuery}
  ];
- const direct=normalizeHeCommand(userText);
+ const direct=normalizeHeCommand(normalizedUserText);
  const candidate=direct || (Array.isArray(actions)?actions:[]);
  return candidate.filter(a=>{if(!a||!INSTAGRAM_ACTION_TYPES.has(String(a.type||"")))return false;if(a.type==="open_app"&&String(a.package||"")!=="com.instagram.android")return false;return true;});
 }
@@ -208,8 +223,9 @@ app.post("/api/chat",async(req,res)=>{
   const key=process.env.GROQ_API_KEY;
   if(!key)return res.status(503).json({error:"השרת עדיין לא מחובר ל-GROQ_API_KEY"});
   const rawMessages=Array.isArray(req.body?.messages)?req.body.messages:[];
-  const lastUser=rawMessages.filter(m=>m?.role==="user").at(-1)?.content||"";
-  const normalizedLast=String(lastUser).replace(/\s+/g," ").trim();
+  const lastUserRaw=String(rawMessages.filter(m=>m?.role==="user").at(-1)?.content||"");
+  const lastUser=normalizeSpokenHebrew(lastUserRaw);
+  const normalizedLast=lastUser;
   // If speech recognition cuts off before the search term, ask for the missing term.
   const incompleteSearch=/(?:פתח|תפתח|תעבור|עבור|לך|תלך|להיכנס|היכנס|כנס).*?(?:אינסטגרם|אינסטה).*?(?:וחפש|ולחפש|חפש|לחפש)\s*(?:את)?\s*$/iu.test(normalizedLast) ||
     /^(?:חפש|תחפש|לחפש|חיפוש)\s*(?:באינסטגרם|באינסטה)?\s*(?:את)?\s*$/iu.test(normalizedLast);
@@ -217,7 +233,9 @@ app.post("/api/chat",async(req,res)=>{
    return res.json({reply:"לא שמעתי מה לחפש באינסטגרם. אמור לי מה לחפש, למשל: חפש באינסטגרם יוסי.",actions:[]});
   }
   const conversational=/^(תודה|תודה רבה|שלום|היי|הי|אהלן|אוקיי|בסדר|מעולה|כן|לא|ביי|להתראות|לילה טוב|בוקר טוב|ערב טוב|מה קורה|מה קורא|מה קוראה)[!. ,?]*$/iu.test(normalizedLast);
-  const messages=conversational?[]:rawMessages.slice(-10).map(m=>({...m,content:typeof m.content==="string"?m.content.slice(-1000):m.content}));
+  const recentMessages=rawMessages.slice(-10);
+  const lastUserIndex=recentMessages.map(m=>m?.role).lastIndexOf("user");
+  const messages=conversational?[]:recentMessages.map((m,i)=>({...m,content:typeof m.content==="string"?(m.role==="user"&&i===lastUserIndex?lastUser:m.content.slice(-1000)):m.content}));
   // אם למודל אחד נגמרת מכסת הטוקנים/Rate Limit, עוברים אוטומטית למודל אחר שעדיין זמין.
   const models=["openai/gpt-oss-20b","openai/gpt-oss-120b","qwen/qwen3.8-27b"];
   let response=null;
@@ -246,8 +264,8 @@ app.post("/api/chat",async(req,res)=>{
   const contentActions=modelActions.length?[]:actionsFromModelContent(msg.content);
   const actions=repairActions(modelActions.length?modelActions:contentActions,lastUser);
   const suggestions=(String(req.body?.mode||"all").toLowerCase()==="instagram")?["עשה לייק","פתח הודעות","עבור לרילס","חפש באינסטגרם","עבור לפוסט הבא","שמור את הפוסט"]:["פתח הגדרות","פתח Chrome","חזור אחורה","עבור למסך הבית","פתח התראות","העלה עוצמת קול"];
-  if(actions.length){ const names=actions.map(a=>a.type).filter(Boolean); return res.json({reply:msg.content||"",actions,actionSummary:names,unclear:msg.content||""}); }
-  res.json({reply:msg.content||"לא התקבלה תשובה",actions:[]});
+  if(actions.length){ const names=actions.map(a=>a.type).filter(Boolean); return res.json({reply:msg.content||"",actions,actionSummary:names,unclear:msg.content||"",originalCommand:lastUserRaw,normalizedCommand:lastUser}); }
+  res.json({reply:msg.content||"לא התקבלה תשובה",actions:[],originalCommand:lastUserRaw,normalizedCommand:lastUser});
  }catch(e){res.status(500).json({error:"שגיאת שרת"})}
 });
 const remoteDevices=new Map();
