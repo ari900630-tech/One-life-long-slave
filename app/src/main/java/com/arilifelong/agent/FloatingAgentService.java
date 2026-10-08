@@ -703,7 +703,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
 
     @Override public int onStartCommand(Intent i,int flags,int id){
         if(i!=null&&ACTION_UPDATE_NOTIFICATION.equals(i.getAction()))updateNotification(i.getStringExtra("text"));
-        return START_NOT_STICKY;
+        return START_STICKY;
     }
 
     @Override public void onDestroy(){
@@ -716,3 +716,4 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
 
     @Override public IBinder onBind(Intent i){return null;}
 }
+
