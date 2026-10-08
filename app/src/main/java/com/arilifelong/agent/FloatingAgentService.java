@@ -699,7 +699,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                     RuntimeLogger.log(FloatingAgentService.this,"COMMAND_STALE","ignored completion generation="+requestGeneration+" current="+commandGeneration+" text="+text);
                     return;
                 }
-                String resultText=ar.failed==0?"בוצע. מה תרצה שאעשה עכשיו?":"חלק מהפעולות לא הצליחו. מה תרצה שאעשה עכשיו?";
+                String resultText=buildExecutionReport(text,ar)+"\n\n"+(ar.failed==0?"בוצע. מה תרצה שאעשה עכשיו?":"חלק מהפעולות לא הצליחו. מה תרצה שאעשה עכשיו?");
                 addConversation("הסוכן",resultText);
                 if(voice!=null)voice.speak(resultText);
                 setMode(ar.failed==0?"●  מוכן":"⚠  חלקי",resultText);
@@ -727,7 +727,29 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         else if(s.startsWith("שגיאת"))setMode("🎙  דבר",s);
     }
 
-    private static class ActionResult { int total; int succeeded; int failed; }
+    private static class ActionResult {
+        int total;
+        int succeeded;
+        int failed;
+        long elapsedMs;
+        String failureDetails="";
+    }
+    private String appendFailure(String current,String detail){
+        if(detail==null||detail.trim().isEmpty())return current;
+        if(current==null||current.trim().isEmpty())return detail;
+        return current+"; "+detail;
+    }
+
+    private String buildExecutionReport(String requested,ActionResult ar){
+        String q=requested==null||requested.trim().isEmpty()?"הפקודה":requested.trim();
+        StringBuilder b=new StringBuilder();
+        b.append("ביקשת: ").append(q);
+        b.append("\nהצלחתי: ").append(ar.succeeded).append(" מתוך ").append(ar.total);
+        b.append("\nלא הצלחתי: ").append(ar.failed);
+        if(ar.failureDetails!=null&&!ar.failureDetails.trim().isEmpty())b.append("\nמה לא הצליח: ").append(ar.failureDetails);
+        b.append("\nזמן ביצוע: ").append(formatTime(ar.elapsedMs));
+        return b.toString();
+    }
     private boolean instagramOnlyAllowed(String type, JSONObject x){
         if(type==null)return false;
         if("open_app".equals(type)) return "com.instagram.android".equals(x.optString("package",""));
@@ -811,6 +833,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                 if(!instagramOnlyAllowed(t,x)){
                     result.failed++;
                     RuntimeLogger.log(this,"INSTAGRAM_ONLY_BLOCK","blocked action="+t+" package="+x.optString("package",""));
+                    result.failureDetails=appendFailure(result.failureDetails,"שלב "+(i+1)+": פעולה חסומה ("+t+")");
                     RuntimeLogger.log(this,"ACTION_STEP","FAILURE|"+(i+1)+"/"+actions.length()+"|reason=blocked");
                     continue;
                 }
@@ -823,6 +846,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                     if(!instagramUiReady()){
                         result.failed++;
                         RuntimeLogger.log(this,"INSTAGRAM_ONLY_BLOCK","Instagram not active for action="+t);
+                        result.failureDetails=appendFailure(result.failureDetails,"שלב "+(i+1)+": Instagram לא היה פעיל");
                         RuntimeLogger.log(this,"ACTION_STEP","FAILURE|"+(i+1)+"/"+actions.length()+"|reason=instagram_not_active");
                         continue;
                     }
@@ -886,11 +910,13 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                 setMode("✓ "+(i+1)+"/"+actions.length(),"הצליחו "+result.succeeded+" • נכשלו "+result.failed+" • נשארו "+formatTime(dynamicRemaining));
             }
         }catch(Exception fatal){
+            result.failureDetails=appendFailure(result.failureDetails,"שלב "+(result.succeeded+result.failed+1)+": "+String.valueOf(fatal.getMessage()==null?fatal:fatal.getMessage()));
             RuntimeLogger.log(this,"ACTION_RUN_ERROR",String.valueOf(fatal));
             result.failed++;
         }finally{
             actionExecutionActive=false;
-            String summary="הצליחו "+result.succeeded+" מתוך "+result.total+" • נכשלו "+result.failed+" • זמן "+formatTime(System.currentTimeMillis()-executionStart);
+            result.elapsedMs=System.currentTimeMillis()-executionStart;
+            String summary=buildExecutionReport(activeCommand,result);
             RuntimeLogger.log(this,"ACTION_SUMMARY","success="+result.succeeded+"|failed="+result.failed+"|total="+result.total+"|elapsed="+(System.currentTimeMillis()-executionStart)+"ms|command="+activeCommand);
             if(cancelRequested)setMode("⏹  נעצר",summary+" • הפעולה הופסקה");
             else setMode(result.failed==0?"●  מוכן":"⚠  חלקי",summary);
