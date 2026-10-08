@@ -721,6 +721,24 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
     }
 
     private static class ActionResult { int total; int succeeded; int failed; }
+    private boolean instagramOnlyAllowed(String type, JSONObject x){
+        if(type==null)return false;
+        if("open_app".equals(type)) return "com.instagram.android".equals(x.optString("package",""));
+        return "instagram_action".equals(type) || "click_text".equals(type) || "click_content_description".equals(type)
+                || "click_role".equals(type) || "type_text".equals(type) || "send_text".equals(type)
+                || "long_click_text".equals(type) || "tap".equals(type) || "long_click".equals(type)
+                || "swipe".equals(type) || "swipe_direction".equals(type) || "scroll".equals(type)
+                || "scroll_repeat".equals(type) || "scroll_until_text".equals(type) || "click_repeat".equals(type)
+                || "screen_info".equals(type) || "screenshot".equals(type) || "back".equals(type)
+                || "like".equals(type) || "follow".equals(type) || "approve".equals(type)
+                || "open_chat_menu".equals(type) || "pin".equals(type) || "press_send".equals(type);
+    }
+
+    private boolean instagramUiReady(){
+        AgentAccessibilityService s=AgentAccessibilityService.getInstance();
+        return s!=null && s.isInstagramActive();
+    }
+
     private ActionResult runActions(JSONArray actions){
         ActionResult result=new ActionResult();
         if(actions==null)return result;
@@ -728,7 +746,20 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         for(int i=0;i<actions.length();i++)try{
             setMode("⚙ "+(i+1)+"/"+actions.length(),"מבצע שלב "+(i+1)+" מתוך "+actions.length());
             JSONObject x=actions.getJSONObject(i); String t=x.optString("type");
-            boolean transitionAction=t.equals("open_app")||t.equals("settings")||t.equals("app_settings")||t.equals("system_action")||t.equals("play_store_search")||t.equals("open_url");
+            if(!instagramOnlyAllowed(t,x)){
+                result.failed++;
+                RuntimeLogger.log(this,"INSTAGRAM_ONLY_BLOCK","blocked action="+t+" package="+x.optString("package",""));
+                continue;
+            }
+            if(!"open_app".equals(t) && !instagramUiReady()){
+                try{Thread.sleep(900);}catch(InterruptedException e){Thread.currentThread().interrupt();}
+                if(!instagramUiReady()){
+                    result.failed++;
+                    RuntimeLogger.log(this,"INSTAGRAM_ONLY_BLOCK","Instagram not active for action="+t);
+                    continue;
+                }
+            }
+            boolean transitionAction="open_app".equals(t);
             switch(t){
                 case "open_url": if(!ActionEngine.openUrl(this,x.optString("url")))throw new IllegalStateException("open_url failed");break;
                 case "open_app": if(!ActionEngine.openApp(this,x.optString("package")))throw new IllegalStateException("open_app failed: "+x.optString("package"));break;
