@@ -18,6 +18,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     private Button talk;
     private Button chatToggle;
     private LinearLayout chatPanel;
+    private WindowManager.LayoutParams chatLp;
     private EditText chatInput;
     private VoiceEngine voice;
     private static final String CHANNEL="agent_floating";
@@ -190,14 +191,16 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         chatPanel=new LinearLayout(this);
         chatPanel.setOrientation(LinearLayout.HORIZONTAL);
         chatPanel.setGravity(Gravity.CENTER_VERTICAL);
-        chatPanel.setPadding(10,8,10,8);
+        chatPanel.setPadding(10,7,8,7);
         GradientDrawable shell=bg(Color.WHITE,28);
         shell.setStroke(1,Color.rgb(232,234,242));
         chatPanel.setBackground(shell);
         chatPanel.setElevation(16f);
         chatInput=new EditText(this);
         chatInput.setSingleLine(true);
-        chatInput.setHint("כתוב לסוכן מה לעשות…");
+        TextView ig=label("Instagram",12,Color.rgb(103,87,217));
+        ig.setTypeface(null,1);
+        chatInput.setHint("מה לעשות באינסטגרם?");
         chatInput.setTextSize(14);
         chatInput.setTextColor(Color.rgb(28,29,43));
         chatInput.setHintTextColor(Color.rgb(140,142,154));
@@ -207,16 +210,18 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         send.setBackground(bg(Color.rgb(103,87,217),22)); send.setMinHeight(42);
         send.setOnClickListener(v->sendChatText());
         chatInput.setOnEditorActionListener((v,id,event)->{sendChatText();return true;});
-        chatPanel.addView(chatInput,new LinearLayout.LayoutParams(0,52,1));
+        chatPanel.addView(ig,new LinearLayout.LayoutParams(70,46));
+        chatPanel.addView(chatInput,new LinearLayout.LayoutParams(0,46,1));
         chatPanel.addView(send,new LinearLayout.LayoutParams(70,46));
         WindowManager.LayoutParams cp=new WindowManager.LayoutParams(
                 -1,WindowManager.LayoutParams.WRAP_CONTENT,
                 Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE,
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT);
-        cp.gravity=Gravity.TOP|Gravity.LEFT; cp.x=0; cp.y=128;
+        cp.gravity=Gravity.TOP|Gravity.LEFT; cp.x=0; cp.y=8;
+        chatLp=cp;
         try{wm.addView(chatPanel,cp);}catch(Exception e){RuntimeLogger.log(this,"CHAT_ERROR","add_panel="+e);}
-        chatPanel.setVisibility(View.GONE);
+        chatPanel.setVisibility(View.VISIBLE);
     }
 
     private void toggleChat(){
