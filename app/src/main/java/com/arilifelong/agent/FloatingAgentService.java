@@ -802,6 +802,19 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         return String.format(java.util.Locale.ROOT,"%d דק׳ %02d שנ׳",(long)(sec/60),((long)sec)%60);
     }
 
+    private String sanitizeInstagramInput(String value,String command){
+        String v=value==null?"":value.trim();
+        String c=command==null?"":command.trim();
+        if(v.contains("מיקרופון קלט קול")||v.contains("שמעתי:")||v.contains("יכולות ושליטה")||v.contains("העתק את כל הלוגים")||v.contains("🎙")||v.length()>300){
+            String s=c.replaceAll("[!?.,;؛،]"," ").replaceAll("\\s+"," ").trim();
+            java.util.regex.Pattern p=java.util.regex.Pattern.compile("(?:לאינסטגרם|לנסטגרם|באינסטגרם|באינסטה|לינסטגרם|אינסטגרם|אינסטה).*?(?:וחפש|ותחפש|חפש|תחפש|לחפש|חיפוש)\\s+(?:את\\s+)?(.+)$",java.util.regex.Pattern.CASE_INSENSITIVE|java.util.regex.Pattern.UNICODE_CASE);
+            java.util.regex.Matcher m=p.matcher(s);
+            if(m.find()&&m.group(1)!=null&&!m.group(1).trim().isEmpty())return m.group(1).trim();
+            return "";
+        }
+        return v;
+    }
+
     private ActionResult runActions(JSONArray actions){
         ActionResult result=new ActionResult();
         final long executionGeneration=commandGeneration;
@@ -889,8 +902,24 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                     case "click_content_description": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("CLICK_CONTENT_DESCRIPTION",x.optString("text",x.optString("target")),""))throw new IllegalStateException("click_content_description failed");break;}
                     case "click_role": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("CLICK_ROLE",x.optString("text",x.optString("role")),""))throw new IllegalStateException("click_role failed");break;}
                     case "long_click_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("LONG_CLICK_TEXT",x.optString("text",x.optString("target")),""))throw new IllegalStateException("long_click_text failed");break;}
-                    case "type_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("TYPE_TEXT",x.optString("text"),""))throw new IllegalStateException("type_text failed");break;}
-                    case "send_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("SEND_TEXT",x.optString("text"),""))throw new IllegalStateException("send_text failed");break;}
+                    case "type_text": {
+                        AgentAccessibilityService s=AgentAccessibilityService.getInstance();
+                        if(s==null)throw new IllegalStateException("accessibility unavailable");
+                        String typeValue=x.optString("text",x.optString("value",""));
+                        String safeValue=sanitizeInstagramInput(typeValue,activeCommand);
+                        RuntimeLogger.log(this,"TYPE_TEXT_GUARD","rawLen="+typeValue.length()+" safe="+safeValue);
+                        if(safeValue.isEmpty()||safeValue.length()>300)throw new IllegalStateException("unsafe type_text blocked");
+                        if(!s.performActionWithFallback("TYPE_TEXT",safeValue,""))throw new IllegalStateException("type_text failed");
+                        break;
+                    }
+                    case "send_text": {
+                        AgentAccessibilityService s=AgentAccessibilityService.getInstance();
+                        if(s==null)throw new IllegalStateException("accessibility unavailable");
+                        String sendValue=sanitizeInstagramInput(x.optString("text",x.optString("value","")),activeCommand);
+                        if(sendValue.isEmpty()||sendValue.length()>300)throw new IllegalStateException("unsafe send_text blocked");
+                        if(!s.performActionWithFallback("SEND_TEXT",sendValue,""))throw new IllegalStateException("send_text failed");
+                        break;
+                    }
                     case "scroll": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("SCROLL","",x.optString("direction","down")))throw new IllegalStateException("scroll failed");break;}
                     case "swipe_direction": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("SWIPE","",x.optString("direction","up")))throw new IllegalStateException("swipe failed");break;}
                     case "like": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("LIKE","",""))throw new IllegalStateException("like failed");break;}
