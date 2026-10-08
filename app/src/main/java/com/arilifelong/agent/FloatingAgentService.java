@@ -15,6 +15,10 @@ import org.json.JSONObject;
 
 public class FloatingAgentService extends Service implements VoiceEngine.Listener {
     private static volatile FloatingAgentService activeInstance;
+    private volatile boolean actionExecutionActive=false;
+    private volatile boolean instagramWasReached=false;
+    private volatile boolean cancelRequested=false;
+    private volatile String activeCommand="";
     private WindowManager wm;
     private View bar;
     private TextView status;
@@ -64,6 +68,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
 
     @Override public void onCreate() {
         super.onCreate();
+        activeInstance=this;
         RuntimeLogger.init(this,"floating_service_onCreate");
         RuntimeLogger.log(this,"APP","package="+getPackageName()+" android="+Build.VERSION.RELEASE+" sdk="+Build.VERSION.SDK_INT);
         createChannel();
@@ -658,6 +663,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
     }
 
     @Override public void onText(String text){
+        activeCommand=text==null?"":text.trim();
         RuntimeLogger.log(this,"COMMAND_RECEIVED","text="+(text==null?"<null>":text));
         if(text==null||text.trim().isEmpty()){RuntimeLogger.log(this,"COMMAND_REJECTED","empty transcript");return;}
         addConversation("אתה",text);
@@ -726,111 +732,149 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         return s!=null && s.isInstagramActive();
     }
 
+    public static void cancelIfInstagramExited(){
+        FloatingAgentService s=activeInstance;
+        if(s!=null && s.actionExecutionActive && s.instagramWasReached){
+            s.cancelRequested=true;
+            RuntimeLogger.log(s,"ACTION_CANCELLED","reason=user_left_instagram|command="+s.activeCommand);
+            s.setMode("⏹  נעצר","הפעולה נעצרה כי יצאת מאינסטגרם");
+        }
+    }
+
+    private long estimateActionMs(JSONObject x){
+        String t=x==null?"":x.optString("type","");
+        if("open_app".equals(t))return 900;
+        if("instagram_action".equals(t)){
+            String a=x.optString("action","");
+            if("search".equals(a)||"submit_search".equals(a))return 900;
+            if("send_text".equals(a))return 850;
+            return 650;
+        }
+        if("type_text".equals(t)||"send_text".equals(t))return 650;
+        if(t.startsWith("click")||t.startsWith("long_click"))return 600;
+        if(t.startsWith("scroll")||t.startsWith("swipe"))return 700;
+        return 600;
+    }
+
+    private String formatTime(long ms){
+        double sec=ms/1000.0;
+        if(sec<1)return "פחות משנייה";
+        if(sec<60)return String.format(java.util.Locale.ROOT,"%.1f שנ׳",sec);
+        return String.format(java.util.Locale.ROOT,"%d דק׳ %02d שנ׳",(long)(sec/60),((long)sec)%60);
+    }
+
     private ActionResult runActions(JSONArray actions){
         ActionResult result=new ActionResult();
         if(actions==null)return result;
         result.total=actions.length();
-        for(int i=0;i<actions.length();i++)try{
-            setMode("⚙ "+(i+1)+"/"+actions.length(),"מבצע שלב "+(i+1)+" מתוך "+actions.length());
-            JSONObject x=actions.getJSONObject(i); String t=x.optString("type");
-            if(!instagramOnlyAllowed(t,x)){
-                result.failed++;
-                RuntimeLogger.log(this,"INSTAGRAM_ONLY_BLOCK","blocked action="+t+" package="+x.optString("package",""));
-                continue;
-            }
-            if(!"open_app".equals(t) && !instagramUiReady()){
-                try{Thread.sleep(900);}catch(InterruptedException e){Thread.currentThread().interrupt();}
-                if(!instagramUiReady()){
+        actionExecutionActive=true;
+        cancelRequested=false;
+        instagramWasReached=false;
+        long executionStart=System.currentTimeMillis();
+        long[] estimates=new long[actions.length()];
+        long totalEstimate=0;
+        for(int z=0;z<actions.length();z++){ estimates[z]=estimateActionMs(actions.optJSONObject(z)); totalEstimate+=estimates[z]; }
+        try{
+            for(int i=0;i<actions.length();i++){
+                if(cancelRequested){
+                    result.failed += actions.length()-i;
+                    break;
+                }
+                long stepStart=System.currentTimeMillis();
+                long remainingEstimate=0;
+                for(int z=i;z<estimates.length;z++)remainingEstimate+=estimates[z];
+                setMode("⚙ "+(i+1)+"/"+actions.length(),"שלב "+(i+1)+" מתוך "+actions.length()+" • זמן משוער עד סיום: "+formatTime(remainingEstimate));
+                RuntimeLogger.log(this,"ACTION_STEP","START|"+(i+1)+"/"+actions.length()+"|eta="+remainingEstimate+"ms");
+
+                JSONObject x=actions.getJSONObject(i);
+                String t=x.optString("type");
+                if(!instagramOnlyAllowed(t,x)){
                     result.failed++;
-                    RuntimeLogger.log(this,"INSTAGRAM_ONLY_BLOCK","Instagram not active for action="+t);
+                    RuntimeLogger.log(this,"INSTAGRAM_ONLY_BLOCK","blocked action="+t+" package="+x.optString("package",""));
+                    RuntimeLogger.log(this,"ACTION_STEP","FAILURE|"+(i+1)+"/"+actions.length()+"|reason=blocked");
                     continue;
                 }
-            }
-            boolean transitionAction="open_app".equals(t);
-            switch(t){
-                case "open_url": if(!ActionEngine.openUrl(this,x.optString("url")))throw new IllegalStateException("open_url failed");break;
-                case "open_app": if(!ActionEngine.openApp(this,x.optString("package")))throw new IllegalStateException("open_app failed: "+x.optString("package"));break;
-                case "instagram_action": {
-                    AgentAccessibilityService s=AgentAccessibilityService.getInstance();
-                    if(s==null)throw new IllegalStateException("accessibility unavailable");
-                    String ia=x.optString("action","").toLowerCase(java.util.Locale.ROOT);
-                    String val=x.optString("value","");
-                    boolean ok=s.instagramAction(ia,val);
-                    if(!ok)throw new IllegalStateException("instagram action failed: "+ia);
-                    break;
+
+                if(!"open_app".equals(t) && !instagramUiReady()){
+                    long waitUntil=System.currentTimeMillis()+2200;
+                    while(!instagramUiReady() && System.currentTimeMillis()<waitUntil && !cancelRequested){
+                        try{Thread.sleep(100);}catch(InterruptedException e){Thread.currentThread().interrupt();break;}
+                    }
+                    if(!instagramUiReady()){
+                        result.failed++;
+                        RuntimeLogger.log(this,"INSTAGRAM_ONLY_BLOCK","Instagram not active for action="+t);
+                        RuntimeLogger.log(this,"ACTION_STEP","FAILURE|"+(i+1)+"/"+actions.length()+"|reason=instagram_not_active");
+                        continue;
+                    }
                 }
-                case "close_app": if(!ActionEngine.closeCurrentApp())throw new IllegalStateException("close_app failed");break;
-                case "close_current_app": if(!ActionEngine.closeCurrentApp())throw new IllegalStateException("close_current_app failed");break;
-                case "dial": ActionEngine.dial(this,x.optString("number"));break;
-                case "call": ActionEngine.call(this,x.optString("number"));break;
-                case "sms": ActionEngine.sms(this,x.optString("number"),x.optString("text"));break;
-                case "email": ActionEngine.email(this,x.optString("address"),x.optString("subject"),x.optString("body"));break;
-                case "maps": ActionEngine.maps(this,x.optString("query"));break;
-                case "camera": ActionEngine.camera(this);break;
-                case "settings": if(!ActionEngine.settings(this))throw new IllegalStateException("settings failed");break;
-                case "settings_action": {
-                    AgentAccessibilityService s=AgentAccessibilityService.getInstance();
-                    if(s==null||!s.settingsAction(x.optString("action"),x.optString("value")))throw new IllegalStateException("settings_action failed");
-                    break;
+
+                boolean transitionAction="open_app".equals(t);
+                switch(t){
+                    case "open_url": if(!ActionEngine.openUrl(this,x.optString("url")))throw new IllegalStateException("open_url failed");break;
+                    case "open_app":
+                        if(!ActionEngine.openApp(this,x.optString("package")))throw new IllegalStateException("open_app failed: "+x.optString("package"));
+                        if("com.instagram.android".equals(x.optString("package",""))){
+                            long waitUntil=System.currentTimeMillis()+4500;
+                            while(!instagramUiReady() && System.currentTimeMillis()<waitUntil && !cancelRequested){
+                                try{Thread.sleep(100);}catch(InterruptedException e){Thread.currentThread().interrupt();break;}
+                            }
+                            if(!instagramUiReady())throw new IllegalStateException("Instagram did not become active");
+                            instagramWasReached=true;
+                        }
+                        break;
+                    case "instagram_action": {
+                        AgentAccessibilityService s=AgentAccessibilityService.getInstance();
+                        if(s==null)throw new IllegalStateException("accessibility unavailable");
+                        String ia=x.optString("action","").toLowerCase(java.util.Locale.ROOT);
+                        String val=x.optString("value","");
+                        if(!s.instagramAction(ia,val))throw new IllegalStateException("instagram action failed: "+ia);
+                        break;
+                    }
+                    case "close_app": case "close_current_app": case "dial": case "call": case "sms": case "email": case "maps": case "camera": case "settings": case "settings_action": case "app_settings": case "play_store_search": case "home": case "recents": case "notifications": case "quick_settings": case "open_notifications": case "volume": case "brightness": case "system_action": case "chrome_new_tab": case "chrome_close_tab": case "chrome_next_tab": case "chrome_previous_tab": case "chrome_clear_search": case "uninstall_app": case "uninstall_current_app": case "open_notifications_and_click": case "long_click_notification": case "click_quick_setting": case "long_click_quick_setting":
+                        throw new IllegalStateException("blocked_non_instagram_action");
+                    case "move_overlay": moveOverlay(x.optString("position","top"));break;
+                    case "long_click": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.longClick((float)x.optDouble("x",540),(float)x.optDouble("y",1000)))throw new IllegalStateException("long_click failed");break;}
+                    case "tap": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.tap((float)x.optDouble("x",540),(float)x.optDouble("y",1000)))throw new IllegalStateException("tap failed");break;}
+                    case "swipe": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.swipe((float)x.optDouble("x1",540),(float)x.optDouble("y1",1500),(float)x.optDouble("x2",540),(float)x.optDouble("y2",500),(long)x.optDouble("duration",600)))throw new IllegalStateException("swipe failed");break;}
+                    case "scroll_repeat": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null)throw new IllegalStateException("accessibility unavailable");int n=Math.min(20,Math.max(1,x.optInt("count",3)));boolean fwd=!"back".equalsIgnoreCase(x.optString("direction"));for(int k=0;k<n;k++){if(!s.scroll(fwd))throw new IllegalStateException("scroll failed");try{Thread.sleep(Math.min(400,Math.max(50,x.optInt("delay",150))));}catch(Exception ignored){}}break;}
+                    case "back": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.globalBack())throw new IllegalStateException("back failed");break;}
+                    case "click_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("CLICK_TEXT",x.optString("text"),""))throw new IllegalStateException("click_text failed");break;}
+                    case "click_content_description": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("CLICK_CONTENT_DESCRIPTION",x.optString("text",x.optString("target")),""))throw new IllegalStateException("click_content_description failed");break;}
+                    case "click_role": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("CLICK_ROLE",x.optString("text",x.optString("role")),""))throw new IllegalStateException("click_role failed");break;}
+                    case "long_click_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("LONG_CLICK_TEXT",x.optString("text",x.optString("target")),""))throw new IllegalStateException("long_click_text failed");break;}
+                    case "type_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("TYPE_TEXT",x.optString("text"),""))throw new IllegalStateException("type_text failed");break;}
+                    case "send_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("SEND_TEXT",x.optString("text"),""))throw new IllegalStateException("send_text failed");break;}
+                    case "scroll": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("SCROLL","",x.optString("direction","down")))throw new IllegalStateException("scroll failed");break;}
+                    case "swipe_direction": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("SWIPE","",x.optString("direction","up")))throw new IllegalStateException("swipe failed");break;}
+                    case "like": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("LIKE","",""))throw new IllegalStateException("like failed");break;}
+                    case "follow": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("FOLLOW","",""))throw new IllegalStateException("follow failed");break;}
+                    case "approve": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("APPROVE","",""))throw new IllegalStateException("approve failed");break;}
+                    case "open_chat_menu": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.openChatMenu())throw new IllegalStateException("open_chat_menu failed");break;}
+                    case "pin": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.pinItem())throw new IllegalStateException("pin failed");break;}
+                    case "press_send": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.pressSend())throw new IllegalStateException("press_send failed");break;}
+                    case "screen_info": case "screenshot": { AgentAccessibilityService s=AgentAccessibilityService.getInstance(); if(s==null)throw new IllegalStateException("accessibility unavailable"); if("screenshot".equals(t)&&!s.screenshot())throw new IllegalStateException("screenshot failed"); break; }
+                    case "click_repeat": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.clickRepeat(x.optString("text"),Math.min(5,x.optInt("count",2)),x.optLong("delay",150)))throw new IllegalStateException("click_repeat failed");break;}
+                    case "scroll_until_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.scrollUntilText(x.optString("text"),!"back".equalsIgnoreCase(x.optString("direction")),Math.min(15,x.optInt("max",10)),Math.min(500,x.optLong("delay",150))))throw new IllegalStateException("scroll_until_text failed");break;}
+                    default: throw new IllegalStateException("unsupported_action="+t);
                 }
-                case "app_settings": if(!ActionEngine.appSettings(this,x.optString("package")))throw new IllegalStateException("app_settings failed");break;
-                case "play_store_search": ActionEngine.playStoreSearch(this,x.optString("query"));break;
-                case "move_overlay": moveOverlay(x.optString("position","top"));break;
-                case "long_click": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.longClick((float)x.optDouble("x",540),(float)x.optDouble("y",1000));break;}
-                case "tap": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.tap((float)x.optDouble("x",540),(float)x.optDouble("y",1000));break;}
-                case "swipe": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.swipe((float)x.optDouble("x1",540),(float)x.optDouble("y1",1500),(float)x.optDouble("x2",540),(float)x.optDouble("y2",500),(long)x.optDouble("duration",600));break;}
-                case "scroll_repeat": {AgentAccessibilityService s=AgentAccessibilityService.getInstance(); if(s!=null){int n=Math.min(50,Math.max(1,x.optInt("count",10))); boolean fwd=!"back".equalsIgnoreCase(x.optString("direction")); for(int k=0;k<n;k++){if(!s.scroll(fwd))break; try{Thread.sleep(Math.min(800,Math.max(50,x.optInt("delay",250))));}catch(Exception ignored){}}}break;}
-                case "back": ActionEngine.back();break;
-                case "home": ActionEngine.home();break;
-                case "recents": ActionEngine.recents();break;
-                case "notifications": ActionEngine.notifications(this);break;
-                case "quick_settings": ActionEngine.quickSettings(this);break;
-                case "click_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("CLICK_TEXT",x.optString("text"),""))throw new IllegalStateException("click_text failed");break;}
-                case "click_content_description": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("CLICK_CONTENT_DESCRIPTION",x.optString("text",x.optString("target")),""))throw new IllegalStateException("click_content_description failed");break;}
-                case "click_role": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("CLICK_ROLE",x.optString("text",x.optString("role")),""))throw new IllegalStateException("click_role failed");break;}
-                case "long_click_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("LONG_CLICK_TEXT",x.optString("text",x.optString("target")),""))throw new IllegalStateException("long_click_text failed");break;}
-                case "type_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("TYPE_TEXT",x.optString("text"),""))throw new IllegalStateException("type_text failed");break;}
-                case "send_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("SEND_TEXT",x.optString("text"),""))throw new IllegalStateException("send_text failed");break;}
-                case "scroll": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("SCROLL","",x.optString("direction","down")))throw new IllegalStateException("scroll failed");break;}
-                case "swipe_direction": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("SWIPE","",x.optString("direction","up")))throw new IllegalStateException("swipe_direction failed");break;}
-                case "like": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("LIKE","",""))throw new IllegalStateException("like failed");break;}
-                case "follow": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("FOLLOW","",""))throw new IllegalStateException("follow failed");break;}
-                case "approve": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("APPROVE","",""))throw new IllegalStateException("approve failed");break;}
-                case "open_chat_menu": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.openChatMenu())throw new IllegalStateException("open_chat_menu failed");break;}
-                case "pin": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.pinItem())throw new IllegalStateException("pin failed");break;}
-                case "press_send": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.pressSend())throw new IllegalStateException("press_send failed");break;}
-                case "open_notifications": ActionEngine.notifications(this);break;
-                case "uninstall_app": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.uninstallApp(x.optString("package"),x.optString("app"));break;}
-                case "uninstall_current_app": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.uninstallApp("", "");break;}
-                case "open_notifications_and_click": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.openNotificationsAndClick(x.optString("text",x.optString("target")),false);break;}
-                case "long_click_notification": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.openNotificationsAndClick(x.optString("text",x.optString("target")),true);break;}
-                case "click_quick_setting": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.openQuickSettingsAndClick(x.optString("text",x.optString("target")),false);break;}
-                case "long_click_quick_setting": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.openQuickSettingsAndClick(x.optString("text",x.optString("target")),true);break;}
-                case "screen_info": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null){ /* מידע נשאר בצ׳אט ללא הקראה */ }break;}
-                case "click_repeat": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.clickRepeat(x.optString("text"),x.optInt("count",3),x.optLong("delay",250));break;}
-                case "scroll_until_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.scrollUntilText(x.optString("text"),!"back".equalsIgnoreCase(x.optString("direction")),x.optInt("max",30),x.optLong("delay",250));break;}
-                case "screenshot": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.screenshot();break;}
-                case "volume": ActionEngine.volume(this,x.optString("stream","music"),x.optString("direction","up"));break;
-                case "brightness": ActionEngine.brightness(this,x.optInt("value",128));break;
-                case "system_action": ActionEngine.systemAction(this,x.optString("action"));break;
-                case "hide_overlay": if(bar!=null)bar.setVisibility(View.GONE);break;
-                case "show_overlay": if(bar!=null)bar.setVisibility(View.VISIBLE);break;
-                case "resize_overlay": if(overlayLp!=null&&wm!=null&&bar!=null){overlayLp.width=Math.max(260,Math.min(900,x.optInt("width",520)));try{wm.updateViewLayout(bar,overlayLp);}catch(Exception ignored){}}break;
-                case "move_overlay_xy": if(overlayLp!=null&&wm!=null&&bar!=null){overlayLp.gravity=Gravity.TOP|Gravity.LEFT;overlayLp.x=x.optInt("x",0);overlayLp.y=Math.max(8,x.optInt("y",80));try{wm.updateViewLayout(bar,overlayLp);}catch(Exception ignored){}}break;
-                case "save_routine": {String n=x.optString("name","routine"),data=x.optString("routine_json","[]");getSharedPreferences("routines",0).edit().putString(n,data).apply();break;}
-                case "run_routine": {String n=x.optString("name","routine"),data=getSharedPreferences("routines",0).getString(n,"[]");try{runActions(new JSONArray(data));}catch(Exception ignored){}break;}
-                case "chrome_new_tab": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();if(svc!=null)svc.chromeNewTab();break;}
-                case "chrome_close_tab": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();if(svc!=null)svc.chromeCloseTab();break;}
-                case "chrome_next_tab": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();if(svc!=null)svc.chromeNextTab();break;}
-                case "chrome_previous_tab": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();if(svc!=null)svc.chromePreviousTab();break;}
-                case "chrome_clear_search": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();if(svc!=null)svc.chromeClearSearch();break;}
-                case "copy": {android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("agent",x.optString("text")));break;}
+
+                result.succeeded++;
+                long elapsed=System.currentTimeMillis()-stepStart;
+                long overall=System.currentTimeMillis()-executionStart;
+                long dynamicRemaining=Math.max(0,totalEstimate-overall);
+                RuntimeLogger.log(this,"ACTION_STEP","SUCCESS|"+(i+1)+"/"+actions.length()+"|elapsed="+elapsed+"ms|eta="+dynamicRemaining+"ms");
+                setMode("✓ "+(i+1)+"/"+actions.length(),"הצליחו "+result.succeeded+" • נכשלו "+result.failed+" • נשארו "+formatTime(dynamicRemaining));
             }
-            if(transitionAction){
-                try{Thread.sleep(1200);}catch(InterruptedException e){Thread.currentThread().interrupt();}
-            }
-            result.succeeded++;
-        }catch(Exception ignored){result.failed++;}
+        }catch(Exception fatal){
+            RuntimeLogger.log(this,"ACTION_RUN_ERROR",String.valueOf(fatal));
+            result.failed++;
+        }finally{
+            actionExecutionActive=false;
+            String summary="הצליחו "+result.succeeded+" מתוך "+result.total+" • נכשלו "+result.failed+" • זמן "+formatTime(System.currentTimeMillis()-executionStart);
+            RuntimeLogger.log(this,"ACTION_SUMMARY","success="+result.succeeded+"|failed="+result.failed+"|total="+result.total+"|elapsed="+(System.currentTimeMillis()-executionStart)+"ms|command="+activeCommand);
+            if(cancelRequested)setMode("⏹  נעצר",summary+" • הפעולה הופסקה");
+            else setMode(result.failed==0?"●  מוכן":"⚠  חלקי",summary);
+        }
         return result;
     }
 
@@ -848,6 +892,9 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
     }
 
     @Override public void onDestroy(){
+        activeInstance=null;
+        actionExecutionActive=false;
+        cancelRequested=true;
         RuntimeLogger.log(this,"APP","floating_service_onDestroy");
         ApiClient.stopRemotePolling();
         if(voice!=null){voice.destroy();voice=null;}
