@@ -661,20 +661,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         RuntimeLogger.log(this,"COMMAND_RECEIVED","text="+(text==null?"<null>":text));
         if(text==null||text.trim().isEmpty()){RuntimeLogger.log(this,"COMMAND_REJECTED","empty transcript");return;}
         addConversation("אתה",text);
-        String normalized=text.trim().toLowerCase(java.util.Locale.ROOT);
-        boolean asksToCloseApp=normalized.matches(".*(תסגור|סגור|סגר|סגרות|סגורת|סגורו|לסגור|תסגר|סגור את|close|quit|exit).*") &&
-                normalized.matches(".*(אפליקציה|אפליקצייה|אפליקציה|אפליקצ|app|application|תוכנה).*");
-        if(asksToCloseApp){
-            RuntimeLogger.log(this,"FAST_PATH","close_current_app text="+text);
-            setMode("⚙  סוגר…","סוגר את האפליקציה הנוכחית");
-            boolean ok=ActionEngine.closeCurrentApp();
-            RuntimeLogger.log(this,"FAST_PATH_RESULT","close_current_app="+ok);
-            String closeText=ok?"סגרתי את האפליקציה.":"לא הצלחתי לסגור את האפליקציה.";
-            addConversation("הסוכן",closeText);
-            if(voice!=null)voice.speak(closeText);
-            return;
-        }
-        if(waitingForConfirmation){
+        // Instagram-only mode: all commands go through the guarded action engine.\n        if(waitingForConfirmation){
             if(isYes(text)){ confirmPendingActions(); return; }
             if(isNo(text)){ cancelPendingConfirmation(); return; }
             pendingActions=null;
