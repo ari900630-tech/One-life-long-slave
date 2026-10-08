@@ -36,7 +36,7 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
     private static final int MAX_RECORD_MS=15000;
     private static final int INITIAL_SILENCE_MS=12000;
     private static final int END_SILENCE_MS=900;
-    private static final int VAD_CALIBRATION_MS=700;
+    private static final int VAD_CALIBRATION_MS=450;
     private static final int MIN_SPEECH_MS=220;
     private static final double MIN_SPEECH_RMS=650.0;
 
@@ -171,7 +171,7 @@ public class VoiceEngine implements TextToSpeech.OnInitListener {
                     noiseSum+=rms;
                     noiseSamples++;
                     double noiseFloor=noiseSamples>0?noiseSum/noiseSamples:0;
-                    speechThreshold=Math.max(MIN_SPEECH_RMS,noiseFloor*2.5);
+                    speechThreshold=Math.max(MIN_SPEECH_RMS,Math.min(2200.0,noiseFloor*2.0));
                     RuntimeLogger.log(context,"MIC_CALIBRATION",
                             "rms="+String.format(Locale.US,"%.1f",rms)+
                             " noise="+String.format(Locale.US,"%.1f",noiseFloor)+
