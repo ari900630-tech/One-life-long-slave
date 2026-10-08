@@ -689,8 +689,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                 waitingForConfirmation=false;
                 String reply=result.optString("reply","");
                 String summary=understood(actions);
-                String naturalReply=!reply.trim().isEmpty()?reply.trim():"הבנתי. אתה רוצה "+summary+".
-";
+                String naturalReply=!reply.trim().isEmpty()?reply.trim():"הבנתי. אתה רוצה "+summary+".\\n";
                 addConversation("הסוכן",naturalReply.trim());
                 if(voice!=null)voice.speak(naturalReply.trim());
                 String unclear=result.optString("unclear","");
