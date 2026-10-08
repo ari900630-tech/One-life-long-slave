@@ -432,8 +432,8 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         ApiClient.chat(q,new ApiClient.Callback(){
             @Override public void success(JSONObject result){
                 String normalized=result.optString("normalizedCommand","").trim();
-                if(!normalized.isEmpty()&&!normalized.equals(text.trim())){
-                    RuntimeLogger.log(FloatingAgentService.this,"COMMAND_NORMALIZED","original="+text+"|corrected="+normalized);
+                if(!normalized.isEmpty()&&!normalized.equals(q.trim())){
+                    RuntimeLogger.log(FloatingAgentService.this,"COMMAND_NORMALIZED","original="+q+"|corrected="+normalized);
                     addConversation("הסוכן","כך הבנתי את הבקשה: "+normalized);
                 }
                 JSONArray actions=result.optJSONArray("actions");
@@ -443,8 +443,8 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                 }
                 hidePlan();
                 showSuggestions(new JSONArray());
-                RuntimeLogger.log(FloatingAgentService.this,"COMMAND_PLAN","requested="+text+"|normalized="+normalized+"|actions="+actions.toString());
-                addConversation("הסוכן","הבנתי: "+(normalized.isEmpty()?text:normalized)+"\nמתחיל לבצע "+actions.length()+" שלבים. פתח את ״שיחה״ כדי לראות את פירוט ההתקדמות.");
+                RuntimeLogger.log(FloatingAgentService.this,"COMMAND_PLAN","requested="+q+"|normalized="+normalized+"|actions="+actions.toString());
+                addConversation("הסוכן","הבנתי: "+(normalized.isEmpty()?q:normalized)+"\nמתחיל לבצע "+actions.length()+" שלבים. פתח את ״שיחה״ כדי לראות את פירוט ההתקדמות.");
                 ActionResult ar=runActions(actions);
                 String resultText=ar.failed==0?"סיימתי. אפשר לבקש ממני משהו נוסף.":"חלק מהפעולות לא הצליחו. אפשר לנסות שוב.";
                 addConversation("הסוכן",resultText);
@@ -691,6 +691,11 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                     RuntimeLogger.log(FloatingAgentService.this,"COMMAND_STALE","ignored success generation="+requestGeneration+" current="+commandGeneration+" text="+text);
                     return;
                 }
+                String normalized=result.optString("normalizedCommand","").trim();
+                if(!normalized.isEmpty()&&!normalized.equals(text.trim())){
+                    RuntimeLogger.log(FloatingAgentService.this,"COMMAND_NORMALIZED","original="+text+"|corrected="+normalized);
+                    addConversation("הסוכן","כך הבנתי את הבקשה: "+normalized);
+                }
                 JSONArray actions=result.optJSONArray("actions");
                 if(actions==null||actions.length()==0){
                     String unclearText=result.optString("reply","").trim();
@@ -705,6 +710,8 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                 waitingForConfirmation=false;
                 hidePlan();
                 showSuggestions(new JSONArray());
+                RuntimeLogger.log(FloatingAgentService.this,"COMMAND_PLAN","requested="+text+"|normalized="+normalized+"|actions="+actions.toString());
+                addConversation("הסוכן","הבנתי: "+(normalized.isEmpty()?text:normalized)+"\nמתחיל לבצע "+actions.length()+" שלבים. פתח את ״שיחה״ כדי לראות את פירוט ההתקדמות.");
                 ActionResult ar=runActions(actions);
                 if(requestGeneration!=commandGeneration){
                     RuntimeLogger.log(FloatingAgentService.this,"COMMAND_STALE","ignored completion generation="+requestGeneration+" current="+commandGeneration+" text="+text);
