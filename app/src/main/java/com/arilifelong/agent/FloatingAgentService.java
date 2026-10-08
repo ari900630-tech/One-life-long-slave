@@ -166,6 +166,17 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         historyView.post(()->{if(historyScroll!=null)historyScroll.fullScroll(View.FOCUS_DOWN);});
     }
 
+    private void showLiveProgress(){
+        if(historyScroll!=null){
+            historyScroll.setVisibility(View.VISIBLE);
+            if(copyHistoryButton!=null)copyHistoryButton.setVisibility(View.VISIBLE);
+            if(historyButton!=null)historyButton.setText("שיחה ▲");
+            if(suggestionsTitle!=null)suggestionsTitle.setVisibility(View.GONE);
+            if(suggestionsScroll!=null)suggestionsScroll.setVisibility(View.GONE);
+            refreshHistoryView();
+        }
+    }
+
     private void toggleHistory(){
         if(historyScroll==null)return;
         boolean show=historyScroll.getVisibility()!=View.VISIBLE;
@@ -224,7 +235,9 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         status=label("מוכן להקשיב",15,Color.rgb(32,33,51));
         status.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);
         statusCard.addView(statusCaption,new LinearLayout.LayoutParams(-1,20));
-        statusCard.addView(status,new LinearLayout.LayoutParams(-1,28));
+        status.setMaxLines(3);
+        status.setMinHeight(34);
+        statusCard.addView(status,new LinearLayout.LayoutParams(-1,ViewGroup.LayoutParams.WRAP_CONTENT));
 
         // Voice-only interface: no text input or send button.
         chatMessage=label("",14,Color.rgb(55,56,70));
@@ -321,7 +334,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
 
         // Same visual hierarchy as the main app: header, status card, then controls.
         chatPanel.addView(header,new LinearLayout.LayoutParams(-1,58));
-        chatPanel.addView(statusCard,new LinearLayout.LayoutParams(-1,56));
+        chatPanel.addView(statusCard,new LinearLayout.LayoutParams(-1,ViewGroup.LayoutParams.WRAP_CONTENT));
         chatPanel.addView(suggestionsTitle,new LinearLayout.LayoutParams(-1,32));
         chatPanel.addView(suggestionsScroll,new LinearLayout.LayoutParams(-1,170));
         chatPanel.addView(topRow,new LinearLayout.LayoutParams(-1,48));
@@ -677,6 +690,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         RuntimeLogger.log(this,"USER_REQUEST","requested="+(text==null?"<null>":text)+"|status=received");
         if(text==null||text.trim().isEmpty()){RuntimeLogger.log(this,"COMMAND_REJECTED","empty transcript");return;}
         addConversation("אתה",text);
+        showLiveProgress();
         if(waitingForConfirmation){
             if(isYes(text)){ confirmPendingActions(); return; }
             if(isNo(text)){ cancelPendingConfirmation(); return; }
