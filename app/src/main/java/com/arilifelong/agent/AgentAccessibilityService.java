@@ -481,6 +481,37 @@ public boolean isInstagramActive(){
         for(int i=0;i<n;i++){if(clickContains(text))return true;if(!scroll(forward))break;try{Thread.sleep(Math.max(50,Math.min(1000,delay)));}catch(Exception ignored){}}
         return clickContains(text);
     }
+    public String getVisibleScreenText(){
+        if(!instagramGuard("screen_info"))return "Instagram אינו המסך הפעיל.";
+        AccessibilityNodeInfo root=getRootInActiveWindow();
+        if(root==null)return "לא הצלחתי לקרוא את עץ הנגישות של המסך.";
+        StringBuilder out=new StringBuilder();
+        collectVisibleText(root,out,0);
+        String result=out.toString().trim();
+        if(result.isEmpty())return "לא נמצא טקסט נגיש במסך הנוכחי.";
+        return result.length()>4500?result.substring(0,4500):result;
+    }
+
+    private void collectVisibleText(AccessibilityNodeInfo node,StringBuilder out,int depth){
+        if(node==null||depth>35||out.length()>4500)return;
+        CharSequence text=node.getText();
+        CharSequence desc=node.getContentDescription();
+        if(text!=null&&!text.toString().trim().isEmpty())appendUniqueScreenText(out,text.toString().trim());
+        if(desc!=null&&!desc.toString().trim().isEmpty())appendUniqueScreenText(out,desc.toString().trim());
+        for(int i=0;i<node.getChildCount()&&out.length()<4500;i++){
+            AccessibilityNodeInfo child=node.getChild(i);
+            if(child!=null)collectVisibleText(child,out,depth+1);
+        }
+    }
+
+    private void appendUniqueScreenText(StringBuilder out,String value){
+        if(value==null||value.isEmpty())return;
+        String existing=out.toString();
+        if(existing.contains(value))return;
+        if(out.length()>0)out.append(" | ");
+        out.append(value);
+    }
+
     public boolean screenshot(){
         if(!instagramGuard("screenshot"))return false;
         return android.os.Build.VERSION.SDK_INT>=30 && performGlobalAction(GLOBAL_ACTION_TAKE_SCREENSHOT);
