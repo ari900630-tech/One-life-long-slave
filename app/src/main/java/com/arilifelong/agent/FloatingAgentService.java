@@ -661,7 +661,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         RuntimeLogger.log(this,"COMMAND_RECEIVED","text="+(text==null?"<null>":text));
         if(text==null||text.trim().isEmpty()){RuntimeLogger.log(this,"COMMAND_REJECTED","empty transcript");return;}
         addConversation("אתה",text);
-        // Instagram-only mode: all commands go through the guarded action engine.\n        if(waitingForConfirmation){
+        if(waitingForConfirmation){
             if(isYes(text)){ confirmPendingActions(); return; }
             if(isNo(text)){ cancelPendingConfirmation(); return; }
             pendingActions=null;
