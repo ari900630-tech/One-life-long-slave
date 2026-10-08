@@ -39,7 +39,7 @@ function selectModelTools(mode){
   instagram:["open_app","open_url","instagram_action","click_text","click_content_description","click_role","type_text","send_text","long_click_text","tap","long_click","swipe","swipe_direction","scroll","scroll_repeat","scroll_until_text","click_repeat","screen_info","screenshot","back","home","recents","notifications","quick_settings","like","follow","approve","open_chat_menu","press_send"],
   settings:["settings_action","system_action","click_text","tap","swipe","scroll","screen_info","back","home","volume","brightness","notifications"],
   overlay:["move_overlay","move_overlay_xy","resize_overlay","hide_overlay","show_overlay","screen_info","tap","click_text","back","home"],
-  all:["open_app","open_url","dial","call","sms","maps","click_text","type_text","tap","swipe","scroll","screen_info","back","home","settings_action"]
+  all:MODEL_TOOLS.map(t=>t.function.name)
  };
  const names=sets[mode]||sets.all;
  return MODEL_TOOLS.filter(t=>names.includes(t.function.name));
