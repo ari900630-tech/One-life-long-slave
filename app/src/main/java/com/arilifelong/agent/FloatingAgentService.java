@@ -377,7 +377,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         String q=input==null?"":input.trim().toLowerCase(java.util.Locale.ROOT);
         if(q.isEmpty()){ suggestionsList.removeAllViews(); suggestionsTitle.setVisibility(View.GONE); suggestionsScroll.setVisibility(View.GONE); return; }
         java.util.ArrayList<String> all=new java.util.ArrayList<>();
-        if(q.contains("אינסט")||q.contains("ינסט")||q.contains("instagram")){
+        if(q.contains("אינסט")||q.contains("ינסט")||q.contains("ינסט")||q.contains("instagram")){
             java.util.Collections.addAll(all,"פתח את אינסטגרם","פתח את ההודעות באינסטגרם","עבור לרילס באינסטגרם","עבור לפוסט הבא","עשה לייק לפוסט הזה","שמור את הפוסט הזה","שתף את הפוסט הזה","עבור לפרופיל","חפש באינסטגרם","עקוב אחרי הפרופיל הזה","הפסק לעקוב מהפרופיל הזה","פתח את הסטורי","חזור באינסטגרם","עבור לדף הבית באינסטגרם","כתוב תגובה לפוסט הזה","פתח את הפוסט הבא ושמור אותו","עשה לייק לפוסט ועבור לפוסט הבא","פתח את ההודעות ושלח הודעה","חפש את המשתמש הזה באינסטגרם","פתח את תוצאות החיפוש באינסטגרם");
         } else if(q.contains("פתח")||q.contains("פת")||q.contains("open")){
             java.util.Collections.addAll(all,"פתח את אינסטגרם","פתח את Chrome","פתח את ההגדרות","פתח את המצלמה","פתח את ההודעות","פתח את ההתראות","פתח את חנות Play","פתח את מסך הבית","פתח את האפליקציה האחרונה","פתח את ההגדרות של האפליקציה הנוכחית","פתח את מנהל האפליקציות","פתח את אנשי הקשר","פתח את הטלפון","פתח את המפות","פתח את חיפוש Google","פתח את חלון ההתראות","פתח את ההגדרות המהירות");
