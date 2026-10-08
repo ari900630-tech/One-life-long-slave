@@ -24,6 +24,12 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     private WindowManager.LayoutParams chatLp;
     private EditText chatInput;
     private TextView chatMessage;
+    private TextView historyView;
+    private ScrollView historyScroll;
+    private Button historyButton;
+    private Button copyHistoryButton;
+    private final java.util.ArrayList<String> conversationHistory=new java.util.ArrayList<>();
+    private static final String HISTORY_PREF="agent_conversation_history";
     private TextView suggestionsTitle;
     private LinearLayout suggestionsList;
     private ScrollView suggestionsScroll;
@@ -62,8 +68,9 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         RuntimeLogger.log(this,"APP","package="+getPackageName()+" android="+Build.VERSION.RELEASE+" sdk="+Build.VERSION.SDK_INT);
         createChannel();
         startForeground(NOTIFICATION_ID, notification());
-        // ללא חלונית צפה: השליטה מתבצעת מרחוק דרך הגשר.
+        loadConversationHistory();
         voice=new VoiceEngine(getApplicationContext(),this);
+        createChatPanel();
 ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cmd.trim().isEmpty()) onText(cmd); });
         try{ registerReceiver(screenReceiver,new IntentFilter("com.arilifelong.agent.SCREEN_CHANGED")); }catch(Exception ignored){}
     }
@@ -106,6 +113,69 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
     private void showBar() {
         // הוסר: הממשק היחיד של השירות הוא חלון הצ׳אט הצף.
 }
+
+    private void loadConversationHistory(){
+        try{
+            String raw=getSharedPreferences(HISTORY_PREF,0).getString("items","[]");
+            JSONArray a=new JSONArray(raw);
+            conversationHistory.clear();
+            for(int i=0;i<a.length();i++) conversationHistory.add(a.optString(i,""));
+        }catch(Exception e){ conversationHistory.clear(); }
+    }
+
+    private void saveConversationHistory(){
+        try{
+            JSONArray a=new JSONArray();
+            int start=Math.max(0,conversationHistory.size()-500);
+            for(int i=start;i<conversationHistory.size();i++) a.put(conversationHistory.get(i));
+            getSharedPreferences(HISTORY_PREF,0).edit().putString("items",a.toString()).apply();
+        }catch(Exception ignored){}
+    }
+
+    private void addConversation(String speaker,String text){
+        if(text==null||text.trim().isEmpty())return;
+        String clean=text.trim();
+        if(clean.length()>4000)clean=clean.substring(0,4000)+"…";
+        synchronized(conversationHistory){
+            conversationHistory.add(speaker+": "+clean);
+            while(conversationHistory.size()>500)conversationHistory.remove(0);
+        }
+        saveConversationHistory();
+        refreshHistoryView();
+    }
+
+    private String allConversationText(){
+        synchronized(conversationHistory){
+            if(conversationHistory.isEmpty())return "אין עדיין שיחה."; 
+            StringBuilder b=new StringBuilder();
+            for(String line:conversationHistory)b.append(line).append("\\n\\n");
+            return b.toString().trim();
+        }
+    }
+
+    private void refreshHistoryView(){
+        if(historyView==null)return;
+        historyView.setText(allConversationText());
+        historyView.post(()->{if(historyScroll!=null)historyScroll.fullScroll(View.FOCUS_DOWN);});
+    }
+
+    private void toggleHistory(){
+        if(historyScroll==null)return;
+        boolean show=historyScroll.getVisibility()!=View.VISIBLE;
+        historyScroll.setVisibility(show?View.VISIBLE:View.GONE);
+        if(copyHistoryButton!=null)copyHistoryButton.setVisibility(show?View.VISIBLE:View.GONE);
+        if(suggestionsTitle!=null&&show)suggestionsTitle.setVisibility(View.GONE);
+        if(suggestionsScroll!=null&&show)suggestionsScroll.setVisibility(View.GONE);
+        if(historyButton!=null)historyButton.setText(show?"שיחה ▲":"שיחה");
+        if(show)refreshHistoryView();
+    }
+
+    private void copyConversation(){
+        android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
+        if(cm!=null)cm.setPrimaryClip(android.content.ClipData.newPlainText("היסטוריית שיחה",allConversationText()));
+        if(historyButton!=null)historyButton.setText("הועתק ✓");
+        new Handler(Looper.getMainLooper()).postDelayed(()->{if(historyButton!=null)historyButton.setText("שיחה ▲");},1200);
+    }
 
     private void createChatPanel(){
         if(wm==null)wm=(WindowManager)getSystemService(WINDOW_SERVICE);
@@ -177,14 +247,52 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
 
         TextView dragHandle=label("⋮⋮",18,Color.rgb(145,146,158));
         dragHandle.setGravity(Gravity.CENTER);
+        Button mic=new Button(this);
+        mic.setText("🎙");
+        mic.setTextSize(15);
+        mic.setAllCaps(false);
+        mic.setTextColor(Color.rgb(55,56,75));
+        mic.setBackground(bg(Color.rgb(245,245,250),18));
+        mic.setOnClickListener(v->startVoiceInput());
+        talk=mic;
+
+        historyButton=new Button(this);
+        historyButton.setText("שיחה");
+        historyButton.setTextSize(11);
+        historyButton.setAllCaps(false);
+        historyButton.setTextColor(Color.rgb(55,56,75));
+        historyButton.setBackground(bg(Color.rgb(245,245,250),18));
+        historyButton.setOnClickListener(v->toggleHistory());
+
+        copyHistoryButton=new Button(this);
+        copyHistoryButton.setText("העתק הכול");
+        copyHistoryButton.setTextSize(11);
+        copyHistoryButton.setAllCaps(false);
+        copyHistoryButton.setTextColor(Color.WHITE);
+        copyHistoryButton.setBackground(bg(Color.rgb(103,87,217),18));
+        copyHistoryButton.setOnClickListener(v->copyConversation());
+        copyHistoryButton.setVisibility(View.GONE);
+
         LinearLayout topRow=new LinearLayout(this);
         topRow.setOrientation(LinearLayout.HORIZONTAL);
         topRow.setGravity(Gravity.CENTER_VERTICAL);
         topRow.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
-        topRow.addView(dragHandle,new LinearLayout.LayoutParams(28,48));
+        topRow.addView(dragHandle,new LinearLayout.LayoutParams(26,48));
+        topRow.addView(mic,new LinearLayout.LayoutParams(46,44));
+        topRow.addView(historyButton,new LinearLayout.LayoutParams(58,44));
         topRow.addView(chatInput,new LinearLayout.LayoutParams(0,48,1));
-        topRow.addView(send,new LinearLayout.LayoutParams(68,44));
-        topRow.addView(close,new LinearLayout.LayoutParams(42,48));
+        topRow.addView(send,new LinearLayout.LayoutParams(58,44));
+        topRow.addView(close,new LinearLayout.LayoutParams(38,48));
+
+        historyScroll=new ScrollView(this);
+        historyScroll.setFillViewport(true);
+        historyScroll.setVerticalScrollBarEnabled(true);
+        historyView=label("",13,Color.rgb(45,46,60));
+        historyView.setGravity(Gravity.RIGHT|Gravity.TOP);
+        historyView.setTextIsSelectable(true);
+        historyView.setPadding(10,8,10,8);
+        historyScroll.addView(historyView,new ScrollView.LayoutParams(-1,-2));
+        historyScroll.setVisibility(View.GONE);
         // Build the suggestions views before adding them to the panel.
         suggestionsTitle=label("אפשר לבקש גם:",13,Color.rgb(90,91,105));
         suggestionsTitle.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);
@@ -204,6 +312,8 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         chatPanel.addView(suggestionsTitle,new LinearLayout.LayoutParams(-1,32));
         chatPanel.addView(suggestionsScroll,new LinearLayout.LayoutParams(-1,170));
         chatPanel.addView(topRow,new LinearLayout.LayoutParams(-1,48));
+        chatPanel.addView(historyScroll,new LinearLayout.LayoutParams(-1,210));
+        chatPanel.addView(copyHistoryButton,new LinearLayout.LayoutParams(-1,42));
 
         LinearLayout.LayoutParams messageLp=new LinearLayout.LayoutParams(-1,58);
         chatPanel.addView(chatMessage,messageLp);
@@ -252,6 +362,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         try{
             wm.addView(chatPanel,chatLp);
             chatPanel.setVisibility(View.VISIBLE);
+            refreshHistoryView();
         }catch(Exception e){RuntimeLogger.log(this,"CHAT_ERROR","add_panel="+e);}
     }
 
@@ -262,6 +373,11 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         chatPanel=null;
         chatInput=null;
         chatMessage=null;
+        historyView=null;
+        historyScroll=null;
+        historyButton=null;
+        copyHistoryButton=null;
+        talk=null;
         suggestionsList=null;
         suggestionsTitle=null;
         suggestionsScroll=null;
@@ -310,11 +426,17 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                 hidePlan();
                 showSuggestions(new JSONArray());
                 ActionResult ar=runActions(actions);
-                setMode(ar.failed==0?"●  מוכן":"⚠  חלקי",ar.failed==0?"בוצע. אפשר לתת פקודה נוספת":"חלק מהפעולות לא בוצעו");
+                String resultText=ar.failed==0?"סיימתי. אפשר לבקש ממני משהו נוסף.":"חלק מהפעולות לא הצליחו. אפשר לנסות שוב.";
+                addConversation("הסוכן",resultText);
+                if(voice!=null)voice.speak(resultText);
+                setMode(ar.failed==0?"●  מוכן":"⚠  חלקי",resultText);
                 RuntimeLogger.log(FloatingAgentService.this,"SUGGESTION_EXECUTED","actions="+actions.length()+" command="+q+" failed="+ar.failed);
             }
             @Override public void error(String message){
-                setMode("⚠  לא הצלחתי","ההצעה לא בוצעה");
+                String errText="לא הצלחתי לבצע את זה. אפשר לנסות שוב.";
+                addConversation("הסוכן",errText);
+                if(voice!=null)voice.speak(errText);
+                setMode("⚠  לא הצלחתי",errText);
                 RuntimeLogger.log(FloatingAgentService.this,"SUGGESTION_ERROR",String.valueOf(message));
             }
         });
@@ -444,11 +566,15 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         setMode("⚙  מבצע…","מבצע רק לאחר האישור שלך");
         ActionResult ar=runActions(actions);
         if(ar.failed==0){
-            setMode("●  מוכן","בוצע. אפשר לתת פקודה נוספת");
-            // ללא דיבור אוטומטי
+            String doneText="סיימתי. אפשר לבקש ממני משהו נוסף.";
+            addConversation("הסוכן",doneText);
+            if(voice!=null)voice.speak(doneText);
+            setMode("●  מוכן",doneText);
         }else{
-            setMode("⚠  חלקי","חלק מהפעולות לא בוצעו");
-            // ללא דיבור אוטומטי
+            String partialText="חלק מהפעולות לא הצליחו. אפשר לנסות שוב.";
+            addConversation("הסוכן",partialText);
+            if(voice!=null)voice.speak(partialText);
+            setMode("⚠  חלקי",partialText);
         }
     }
 
@@ -456,8 +582,10 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         pendingActions=null;
         waitingForConfirmation=false;
         hidePlan();
-        setMode("●  מוכן","לא בוצע דבר");
-        // ללא דיבור אוטומטי
+        String cancelText="בסדר, לא ביצעתי את הפעולה.";
+        addConversation("הסוכן",cancelText);
+        if(voice!=null)voice.speak(cancelText);
+        setMode("●  מוכן",cancelText);
     }
 
     private void showErrorCopy(String error,String command){
@@ -526,6 +654,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
     @Override public void onText(String text){
         RuntimeLogger.log(this,"COMMAND_RECEIVED","text="+(text==null?"<null>":text));
         if(text==null||text.trim().isEmpty()){RuntimeLogger.log(this,"COMMAND_REJECTED","empty transcript");return;}
+        addConversation("אתה",text);
         String normalized=text.trim().toLowerCase(java.util.Locale.ROOT);
         boolean asksToCloseApp=normalized.matches(".*(תסגור|סגור|סגר|סגרות|סגורת|סגורו|לסגור|תסגר|סגור את|close|quit|exit).*") &&
                 normalized.matches(".*(אפליקציה|אפליקצייה|אפליקציה|אפליקצ|app|application|תוכנה).*");
@@ -534,7 +663,9 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
             setMode("⚙  סוגר…","סוגר את האפליקציה הנוכחית");
             boolean ok=ActionEngine.closeCurrentApp();
             RuntimeLogger.log(this,"FAST_PATH_RESULT","close_current_app="+ok);
-            // ללא דיבור אוטומטי
+            String closeText=ok?"סגרתי את האפליקציה.":"לא הצלחתי לסגור את האפליקציה.";
+            addConversation("הסוכן",closeText);
+            if(voice!=null)voice.speak(closeText);
             return;
         }
         if(waitingForConfirmation){
@@ -549,13 +680,19 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
             @Override public void success(JSONObject result){
                 JSONArray actions=result.optJSONArray("actions");
                 if(actions==null||actions.length()==0){
-                    // ללא דיבור אוטומטי
+                    String unclearText="לא הצלחתי להבין מה לבצע. תסביר לי קצת אחרת.";
+                    addConversation("הסוכן",unclearText);
+                    if(voice!=null)voice.speak(unclearText);
                     return;
                 }
                 pendingActions=actions;
                 waitingForConfirmation=false;
                 String reply=result.optString("reply","");
                 String summary=understood(actions);
+                String naturalReply=!reply.trim().isEmpty()?reply.trim():"הבנתי. אתה רוצה "+summary+".
+";
+                addConversation("הסוכן",naturalReply.trim());
+                if(voice!=null)voice.speak(naturalReply.trim());
                 String unclear=result.optString("unclear","");
                 JSONArray serverSuggestions=result.optJSONArray("suggestions");
                 showSuggestions(serverSuggestions!=null && serverSuggestions.length()>0 ? serverSuggestions : buildSuggestions(actions));
@@ -568,9 +705,11 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                 RuntimeLogger.log(FloatingAgentService.this,"SHOW_SUGGESTIONS","actions="+actions.length()+" command="+text);
             }
             @Override public void error(String message){
-                setMode("⚠  לא הצלחתי","הפעולה נכשלה — ממשיך להקשיב");
+                String errorText="נתקלתי בבעיה בביצוע הבקשה. אפשר לנסות שוב.";
+                addConversation("הסוכן",errorText+" ["+String.valueOf(message)+"]");
+                if(voice!=null)voice.speak(errorText);
+                setMode("⚠  לא הצלחתי",errorText);
                 showErrorCopy(message,text);
-                // ללא דיבור אוטומטי
             }
         });
     }
