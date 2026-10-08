@@ -57,6 +57,7 @@ function normalizeHeCommand(input){
    push("open_app",{package:"com.instagram.android"});
    return actions;
  }
+ if(/(?:כמה|מספר|בדוק|תבדוק|תגיד|תגידי|ראה|תראה).*?(?:עוקבים|עוגבים|followers)|(?:עוקבים|עוגבים|followers).*?(?:יש לי|שלי)/u.test(s) && /אינסט|עוקב|followers/u.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"profile"});push("instagram_action",{action:"wait",value:"700"});push("screen_info",{});return actions;}
  if(/(פתח|תפתח|תעבור|עבור).*הודעות/.test(s)&&/אינסט/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"messages"});return actions;}
  if(/(פתח|תפתח|תעבור|עבור|לך|תלך).*התראות/.test(s)&&(/אינסט/.test(s)||/מסך ההתראות|להתראות/.test(s))){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"notifications"});return actions;}
  if(/(תעבור|עבור|פתח|תפתח|לך|תלך).*חיפוש( באינסטגרם)?$/.test(s)||/מסך החיפוש/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"search"});return actions;}
