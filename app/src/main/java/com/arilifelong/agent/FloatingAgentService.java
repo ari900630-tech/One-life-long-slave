@@ -19,6 +19,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     private volatile boolean instagramWasReached=false;
     private volatile boolean cancelRequested=false;
     private volatile String activeCommand="";
+    private volatile long commandGeneration=0;
     private WindowManager wm;
     private View bar;
     private TextView status;
@@ -429,6 +430,10 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         setMode("⚙  מבצע…","מבצע את ההצעה שנבחרה");
         ApiClient.chat(q,new ApiClient.Callback(){
             @Override public void success(JSONObject result){
+                if(requestGeneration!=commandGeneration){
+                    RuntimeLogger.log(FloatingAgentService.this,"COMMAND_STALE","ignored success generation="+requestGeneration+" current="+commandGeneration+" text="+text);
+                    return;
+                }
                 JSONArray actions=result.optJSONArray("actions");
                 if(actions==null||actions.length()==0){
                     setMode("⚠  לא הצלחתי","לא נמצאה פעולה לביצוע");
@@ -664,7 +669,8 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
 
     @Override public void onText(String text){
         activeCommand=text==null?"":text.trim();
-        RuntimeLogger.log(this,"COMMAND_RECEIVED","text="+(text==null?"<null>":text));
+        final long requestGeneration=++commandGeneration;
+        RuntimeLogger.log(this,"COMMAND_RECEIVED","text="+(text==null?"<null>":text)+"|generation="+requestGeneration);
         if(text==null||text.trim().isEmpty()){RuntimeLogger.log(this,"COMMAND_REJECTED","empty transcript");return;}
         addConversation("אתה",text);
         if(waitingForConfirmation){
@@ -696,6 +702,10 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                 RuntimeLogger.log(FloatingAgentService.this,"ACTIONS_EXECUTED_DIRECTLY","actions="+actions.length()+" command="+text+" failed="+ar.failed);
             }
             @Override public void error(String message){
+                if(requestGeneration!=commandGeneration){
+                    RuntimeLogger.log(FloatingAgentService.this,"COMMAND_STALE","ignored error generation="+requestGeneration+" current="+commandGeneration+" text="+text);
+                    return;
+                }
                 String errorText="נתקלתי בבעיה בביצוע הבקשה. אפשר לנסות שוב.";
                 addConversation("הסוכן",errorText+" ["+String.valueOf(message)+"]");
                 if(voice!=null)voice.speak(errorText);
@@ -904,4 +914,3 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
 
     @Override public IBinder onBind(Intent i){return null;}
 }
-
