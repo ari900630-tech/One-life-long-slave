@@ -744,6 +744,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         int failed;
         long elapsedMs;
         String failureDetails="";
+        String screenInfo="";
     }
     private String appendFailure(String current,String detail){
         if(detail==null||detail.trim().isEmpty())return current;
@@ -779,6 +780,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         b.append("\nהצלחתי: ").append(ar.succeeded).append(" מתוך ").append(ar.total);
         b.append("\nלא הצלחתי: ").append(ar.failed);
         if(ar.failureDetails!=null&&!ar.failureDetails.trim().isEmpty())b.append("\nמה לא הצליח: ").append(ar.failureDetails);
+        if(ar.screenInfo!=null&&!ar.screenInfo.trim().isEmpty())b.append("\nמידע שנקרא מהמסך: ").append(ar.screenInfo);
         b.append("\nזמן ביצוע: ").append(formatTime(ar.elapsedMs));
         return b.toString();
     }
@@ -959,7 +961,17 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                     case "open_chat_menu": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.openChatMenu())throw new IllegalStateException("open_chat_menu failed");break;}
                     case "pin": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.pinItem())throw new IllegalStateException("pin failed");break;}
                     case "press_send": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.pressSend())throw new IllegalStateException("press_send failed");break;}
-                    case "screen_info": case "screenshot": { AgentAccessibilityService s=AgentAccessibilityService.getInstance(); if(s==null)throw new IllegalStateException("accessibility unavailable"); if("screenshot".equals(t)&&!s.screenshot())throw new IllegalStateException("screenshot failed"); break; }
+                    case "screen_info": case "screenshot": {
+                        AgentAccessibilityService s=AgentAccessibilityService.getInstance();
+                        if(s==null)throw new IllegalStateException("accessibility unavailable");
+                        if("screenshot".equals(t)){if(!s.screenshot())throw new IllegalStateException("screenshot failed");}
+                        else {
+                            result.screenInfo=s.getVisibleScreenText();
+                            RuntimeLogger.log(this,"SCREEN_INFO_RESULT","command="+activeCommand+"|text="+result.screenInfo);
+                            addConversation("מידע מהמסך",result.screenInfo);
+                        }
+                        break;
+                    }
                     case "click_repeat": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||s.clickRepeat(x.optString("text"),Math.min(5,x.optInt("count",2)),x.optLong("delay",150))<=0)throw new IllegalStateException("click_repeat failed");break;}
                     case "scroll_until_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.scrollUntilText(x.optString("text"),!"back".equalsIgnoreCase(x.optString("direction")),Math.min(15,x.optInt("max",10)),Math.min(500,x.optLong("delay",150))))throw new IllegalStateException("scroll_until_text failed");break;}
                     default: throw new IllegalStateException("unsupported_action="+t);
