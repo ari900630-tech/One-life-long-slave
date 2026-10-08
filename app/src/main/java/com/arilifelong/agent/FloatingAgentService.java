@@ -463,3 +463,8 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
             try{
                 WindowManager.LayoutParams cp=(WindowManager.LayoutParams)chatPanel.getLayoutParams();
                 cp.flags=show?WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS:WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
+                wm.updateViewLayout(chatPanel,cp);
+            }catch(Exception ignored){}
+        }
+    }
+}
