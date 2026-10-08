@@ -21,6 +21,7 @@ public class AgentAccessibilityService extends AccessibilityService {
     private static AgentAccessibilityService instance;
     private final List<String> diagnostics = new ArrayList<>();
     private final Handler handler = new Handler();
+    private volatile String lastWindowPackage="";
     private String lastAnnouncedScreen="";
     private long lastAnnouncedAt=0;
     private boolean instagramGuard(String action){
@@ -34,9 +35,12 @@ public class AgentAccessibilityService extends AccessibilityService {
 public boolean isInstagramActive(){
         try{
             android.view.accessibility.AccessibilityNodeInfo root=getRootInActiveWindow();
-            if(root==null||root.getPackageName()==null)return false;
-            return "com.instagram.android".contentEquals(root.getPackageName());
-        }catch(Exception e){return false;}
+            if(root!=null && root.getPackageName()!=null && "com.instagram.android".contentEquals(root.getPackageName())){
+                lastWindowPackage="com.instagram.android";
+                return true;
+            }
+            return "com.instagram.android".equals(lastWindowPackage);
+        }catch(Exception e){return "com.instagram.android".equals(lastWindowPackage);}
     }
 
     public static AgentAccessibilityService getInstance(){ return instance; }
@@ -56,6 +60,7 @@ public boolean isInstagramActive(){
         if(event==null){RuntimeLogger.log(this,"ACCESSIBILITY_EVENT","null");return;}
         RuntimeLogger.log(this,"ACCESSIBILITY_EVENT","type="+event.getEventType()+" package="+event.getPackageName());
         String eventPkg=event.getPackageName()==null?"":event.getPackageName().toString();
+        if(!eventPkg.isEmpty()) lastWindowPackage=eventPkg;
         if(!"com.instagram.android".equals(eventPkg) && (treatAsWindowEvent(event.getEventType()))){
             FloatingAgentService.cancelIfInstagramExited();
         }
