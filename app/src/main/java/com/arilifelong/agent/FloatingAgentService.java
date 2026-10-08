@@ -11,7 +11,8 @@ import android.widget.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-public class FloatingAgentService extends Service implements VoiceEngine.Listener {\n    private static volatile FloatingAgentService activeInstance;
+public class FloatingAgentService extends Service implements VoiceEngine.Listener {
+    private static volatile FloatingAgentService activeInstance;
     private WindowManager wm;
     private View bar;
     private TextView status;
@@ -245,7 +246,48 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         }catch(Exception e){RuntimeLogger.log(this,"CHAT_ERROR","add_panel="+e);}
     }
 
-    private void closeChatPanel(){\n        try{\n            if(wm!=null && chatPanel!=null){ wm.removeView(chatPanel); }\n        }catch(Exception ignored){}\n        chatPanel=null;\n        chatInput=null;\n        chatMessage=null;\n        suggestionsList=null;\n        suggestionsTitle=null;\n        chatConfirm=null;\n        stopSelf();\n    }\n\n    private void handleSuggestion(String command){\n        if(command==null)return;\n        String q=command.trim();\n        JSONArray a=new JSONArray();\n        try{\n            JSONObject x=new JSONObject();\n            x.put("type","instagram_action");\n            if(q.contains("לייק")) x.put("action","like");\n            else if(q.contains("הודעות")) x.put("action","messages");\n            else if(q.contains("רילס")) x.put("action","reels");\n            else if(q.contains("פוסט הבא")) x.put("action","next");\n            else if(q.contains("שמור")) x.put("action","save");\n            else if(q.contains("שתף")) x.put("action","share");\n            else if(q.contains("פרופיל")) x.put("action","profile");\n            else if(q.contains("חפש")) x.put("action","search");\n            else { onText(q); return; }\n            a.put(x);\n            pendingActions=a;\n            waitingForConfirmation=true;\n            String summary=understood(a);\n            hidePlan();\n            showPlan("הצעה שנבחרה: "+summary+".\\n\\nלחץ על אישור כדי שאבצע. תיקון כדי לבטל.");\n            setMode("✓  ממתין לאישור","בדוק את הפעולה לפני ביצוע");\n        }catch(Exception e){ onText(q); }\n    }\n\n    private void toggleChat(){
+    private void closeChatPanel(){
+        try{
+            if(wm!=null && chatPanel!=null){ wm.removeView(chatPanel); }
+        }catch(Exception ignored){}
+        chatPanel=null;
+        chatInput=null;
+        chatMessage=null;
+        suggestionsList=null;
+        suggestionsTitle=null;
+        chatConfirm=null;
+        stopSelf();
+    }
+
+    private void handleSuggestion(String command){
+        if(command==null)return;
+        String q=command.trim();
+        JSONArray a=new JSONArray();
+        try{
+            JSONObject x=new JSONObject();
+            x.put("type","instagram_action");
+            if(q.contains("לייק")) x.put("action","like");
+            else if(q.contains("הודעות")) x.put("action","messages");
+            else if(q.contains("רילס")) x.put("action","reels");
+            else if(q.contains("פוסט הבא")) x.put("action","next");
+            else if(q.contains("שמור")) x.put("action","save");
+            else if(q.contains("שתף")) x.put("action","share");
+            else if(q.contains("פרופיל")) x.put("action","profile");
+            else if(q.contains("חפש")) x.put("action","search");
+            else { onText(q); return; }
+            a.put(x);
+            pendingActions=a;
+            waitingForConfirmation=true;
+            String summary=understood(a);
+            hidePlan();
+            showPlan("הצעה שנבחרה: "+summary+".\
+\
+לחץ על אישור כדי שאבצע. תיקון כדי לבטל.");
+            setMode("✓  ממתין לאישור","בדוק את הפעולה לפני ביצוע");
+        }catch(Exception e){ onText(q); }
+    }
+
+    private void toggleChat(){
         if(chatPanel==null)return;
         boolean show=chatPanel.getVisibility()!=View.VISIBLE;
         chatPanel.setVisibility(show?View.VISIBLE:View.GONE);
@@ -458,9 +500,13 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 String unclear=result.optString("unclear","");
                 showSuggestions(buildSuggestions(actions));
                 StringBuilder plan=new StringBuilder("הבנתי: ").append(summary).append(".");
-                if(!unclear.trim().isEmpty())plan.append("\nלא הבנתי: ").append(unclear.trim()).append(".");
-                if(!reply.trim().isEmpty() && !reply.equals("בסדר, מבצע את זה עכשיו."))plan.append("\n").append(reply.trim());
-                plan.append("\n\nלחץ על אישור כדי שאבצע. תיקון כדי לתקן.");
+                if(!unclear.trim().isEmpty())plan.append("
+לא הבנתי: ").append(unclear.trim()).append(".");
+                if(!reply.trim().isEmpty() && !reply.equals("בסדר, מבצע את זה עכשיו."))plan.append("
+").append(reply.trim());
+                plan.append("
+
+לחץ על אישור כדי שאבצע. תיקון כדי לתקן.");
                 showPlan(plan.toString());
                 setMode("✓  ממתין לאישור","בדוק את מה שהבנתי לפני ביצוע");
                 RuntimeLogger.log(FloatingAgentService.this,"WAITING_CONFIRMATION","actions="+actions.length()+" command="+text);
