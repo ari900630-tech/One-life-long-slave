@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="#F7F8FC" android:fillViewport="true">
+<LinearLayout
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical" android:padding="20dp" android:paddingBottom="28dp"
+    android:layoutDirection="rtl">
+
+    <LinearLayout
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="center_vertical" android:paddingTop="8dp" android:paddingBottom="18dp">
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="הסוכן שלי" android:textSize="30sp" android:textStyle="bold" android:textColor="#171827"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:text="עוזר אישי שמבצע פעולות בטלפון"
+                android:textSize="14sp" android:textColor="#77798A"/>
+        </LinearLayout>
+        <TextView android:layout_width="54dp" android:layout_height="54dp"
+            android:gravity="center" android:text="✦" android:textSize="25sp"
+            android:textColor="#FFFFFF" android:background="#6757D9"/>
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="18dp" android:background="@drawable/bg_card">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="מצב הסוכן" android:textSize="13sp" android:textStyle="bold" android:textColor="#7A7C8C"/>
+        <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="5dp" android:text="בודק יכולות..." android:textSize="18sp"
+            android:textStyle="bold" android:textColor="#202133"/>
+        <TextView android:id="@+id/mic_indicator" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:text="● מיקרופון: בודק..." android:textSize="14sp" android:textColor="#6757D9"/>
+        <TextView android:id="@+id/heard_indicator" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="5dp" android:text="● שמע: ממתין" android:textSize="14sp" android:textColor="#77798A"/>
+        <TextView android:id="@+id/agent_indicator" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="5dp" android:text="● סוכן: ממתין" android:textSize="14sp" android:textColor="#77798A"/>
+    </LinearLayout>
+
+    <Button android:id="@+id/talk" android:layout_width="match_parent" android:layout_height="62dp"
+        android:layout_marginTop="14dp" android:text="🎙  דבר עם הסוכן"
+        android:textSize="16sp" android:textStyle="bold" android:textColor="#FFFFFF" android:backgroundTint="#6757D9"/>
+
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="22dp" android:text="יכולות ושליטה"
+        android:textSize="16sp" android:textStyle="bold" android:textColor="#202133"/>
+
+    <Button android:id="@+id/enable" android:layout_width="match_parent" android:layout_height="54dp"
+        android:layout_marginTop="10dp" android:text="הפעל חלונית סוכן צפה"
+        android:textSize="15sp" android:textColor="#25263A"
+        android:backgroundTint="#FFFFFF"/>
+    <Button android:id="@+id/accessibility" android:layout_width="match_parent" android:layout_height="54dp"
+        android:layout_marginTop="8dp" android:text="אפשר שליטה במסך"
+        android:textSize="15sp" android:textColor="#25263A"
+        android:backgroundTint="#FFFFFF"/>
+    <Button android:id="@+id/notifications" android:layout_width="match_parent" android:layout_height="54dp"
+        android:layout_marginTop="8dp" android:text="אפשר גישה להתראות"
+        android:textSize="15sp" android:textColor="#25263A"
+        android:backgroundTint="#FFFFFF"/>
+    <Button android:id="@+id/permissions" android:layout_width="match_parent" android:layout_height="54dp"
+        android:layout_marginTop="8dp" android:text="הרשאות מיקרופון ומצלמה"
+        android:textSize="15sp" android:textColor="#25263A"
+        android:backgroundTint="#FFFFFF"/>
+
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_marginTop="22dp" android:text="מצב עבודה"
+        android:textSize="16sp" android:textStyle="bold" android:textColor="#202133"/>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:layout_marginTop="10dp" android:weightSum="4">
+        <Button android:id="@+id/agent_all" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1"
+            android:layout_marginEnd="4dp" android:text="הכול" android:textSize="12sp"
+            android:backgroundTint="#EEEAFD"/>
+        <Button android:id="@+id/agent_instagram" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1"
+            android:layout_marginStart="2dp" android:layout_marginEnd="2dp" android:text="אינסטגרם" android:textSize="11sp"
+            android:backgroundTint="#F1F2F6"/>
+        <Button android:id="@+id/agent_settings" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1"
+            android:layout_marginStart="2dp" android:layout_marginEnd="2dp" android:text="הגדרות" android:textSize="12sp"
+            android:backgroundTint="#F1F2F6"/>
+        <Button android:id="@+id/agent_chats" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1"
+            android:layout_marginStart="4dp" android:text="צ׳אטים" android:textSize="12sp"
+            android:backgroundTint="#F1F2F6"/>
+    </LinearLayout>
+
+    <Button android:id="@+id/self_test" android:layout_width="match_parent" android:layout_height="54dp"
+        android:layout_marginTop="16dp" android:text="בדוק אוטומטית את כל היכולות"
+        android:textSize="15sp" android:textStyle="bold" android:textColor="#FFFFFF"
+        android:backgroundTint="#6757D9"/>
+    <Button android:id="@+id/copy_logs" android:layout_width="match_parent" android:layout_height="54dp"
+        android:layout_marginTop="8dp" android:text="העתק את כל הלוגים"
+        android:textSize="15sp" android:textColor="#25263A"
+        android:backgroundTint="#FFFFFF"/>
+    <Button android:id="@+id/copy_error" android:layout_width="match_parent" android:layout_height="48dp"
+        android:layout_marginTop="8dp" android:text="העתק לוג שגיאה" android:visibility="gone"/>
+
+</LinearLayout>
+</ScrollView>
