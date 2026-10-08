@@ -270,7 +270,8 @@ public class AgentAccessibilityService extends AccessibilityService {
         return ok;
     }
 
-    private long tryParseDelay(String v){ try{return Math.max(100,Math.min(3000,Long.parseLong(v)));}catch(Exception e){return 500;} }\n    private boolean instagramClick(String alternatives){
+    private long tryParseDelay(String v){ try{return Math.max(100,Math.min(3000,Long.parseLong(v)));}catch(Exception e){return 500;} }
+    private boolean instagramClick(String alternatives){
         List<AccessibilityNodeInfo> nodes=matchingNodes(alternatives);
         for(AccessibilityNodeInfo n:nodes){
             if(n==null)continue;
