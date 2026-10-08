@@ -255,9 +255,8 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         topRow.setGravity(Gravity.CENTER_VERTICAL);
         topRow.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
         topRow.addView(dragHandle,new LinearLayout.LayoutParams(26,48));
-        topRow.addView(mic,new LinearLayout.LayoutParams(46,44));
-        topRow.addView(historyButton,new LinearLayout.LayoutParams(58,44));
         topRow.addView(mic,new LinearLayout.LayoutParams(0,44,1));
+        topRow.addView(historyButton,new LinearLayout.LayoutParams(58,44));
         topRow.addView(close,new LinearLayout.LayoutParams(38,48));
 
         historyScroll=new ScrollView(this);
