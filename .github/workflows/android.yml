@@ -1,4 +1,5 @@
 name: Android APK
+# Automatic APK build on every push to main
 
 on:
   push:
