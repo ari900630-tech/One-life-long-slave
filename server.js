@@ -54,7 +54,10 @@ function normalizeHeCommand(input){
  if(/(שמור|תשמור|לשמור).*פוסט/.test(s)&&/אינסט/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"save"});return actions;}
  const searchMatch=s.match(/(?:חפש|תחפש|לחפש|חיפוש)\s+(?:את\s+)?(.+?)(?:\s+באינסטגרם|\s+באינסטה)$/);
  if(searchMatch){const q=searchMatch[1].trim();if(q){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"search"});push("instagram_action",{action:"wait",value:"650"});push("instagram_action",{action:"type_text",value:q});push("instagram_action",{action:"wait",value:"300"});push("instagram_action",{action:"submit_search",value:q});return actions;}}
- // Combined voice command: "פתח/תח את אינסטגרם וחפש יוסי". Whisper may omit the first letter.\n const combinedSearch=s.match(/(?:פתח|תפתח|תח|פת)\s+(?:את\s+)?אינסט(?:גרם|ה)\s+(?:ו?חפש|ו?תחפש|ו?לחפש|ו?חיפוש)\s+(?:את\s+)?(.+)$/);\n if(combinedSearch){const q=combinedSearch[1].trim();if(q){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"search"});push("instagram_action",{action:"wait",value:"650"});push("instagram_action",{action:"type_text",value:q});push("instagram_action",{action:"wait",value:"300"});push("instagram_action",{action:"submit_search",value:q});return actions;}}\n // Deterministic navigation commands must never depend on an LLM choosing the wrong tool.
+ // Combined voice command: "פתח/תח את אינסטגרם וחפש יוסי". Whisper may omit the first letter.
+ const combinedSearch=s.match(/(?:פתח|תפתח|תח|פת)\s+(?:את\s+)?אינסט(?:גרם|ה)\s+(?:ו?חפש|ו?תחפש|ו?לחפש|ו?חיפוש)\s+(?:את\s+)?(.+)$/);
+ if(combinedSearch){const q=combinedSearch[1].trim();if(q){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"search"});push("instagram_action",{action:"wait",value:"650"});push("instagram_action",{action:"type_text",value:q});push("instagram_action",{action:"wait",value:"300"});push("instagram_action",{action:"submit_search",value:q});return actions;}
+ // Deterministic navigation commands must never depend on an LLM choosing the wrong tool.
  if(/^(תעבור|תעביר|תלך|עבור|לך) (אל )?(מסך )?הבית$/.test(s)||s.includes("תעבור למסך הבית")||s.includes("לעבור למסך הבית")){
   push("home"); return actions;
  }
@@ -104,7 +107,7 @@ function actionsFromModelContent(content){
  if(!raw)return [];
  const candidates=[];
  candidates.push(raw);
- const fenced=raw.match(/\`\`\`(?:json)?\\s*([\\s\\S]*?)\`\`\`/i);
+ const fenced=raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
  if(fenced)candidates.push(fenced[1].trim());
  const start=raw.indexOf("[");
  const end=raw.lastIndexOf("]");
