@@ -282,6 +282,20 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         if(chatConfirm!=null)chatConfirm.setVisibility(View.VISIBLE);
     }
 
+    private JSONArray buildSuggestions(JSONArray actions){
+        JSONArray a=new JSONArray();
+        boolean instagram=false;
+        for(int i=0;i<(actions==null?0:actions.length());i++){
+            JSONObject x=actions.optJSONObject(i);
+            if(x!=null && "instagram_action".equals(x.optString("type")))instagram=true;
+        }
+        String[] list=instagram
+                ? new String[]{"עשה לייק לפוסט הזה","פתח את ההודעות","עבור לרילס","חפש באינסטגרם","עבור לפוסט הבא","שמור את הפוסט הזה","שתף את הפוסט הזה","עבור לפרופיל"}
+                : new String[]{"פתח את ההגדרות","פתח את Chrome","חזור אחורה","עבור למסך הבית","פתח את ההתראות","העלה את עוצמת הקול","גלול למטה","פתח את המצלמה"};
+        for(String s:list)a.put(s);
+        return a;
+    }
+
     private void showSuggestions(JSONArray suggestions){
         if(suggestionsTitle==null||suggestionsList==null)return;
         suggestionsList.removeAllViews();
@@ -442,7 +456,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 String reply=result.optString("reply","");
                 String summary=understood(actions);
                 String unclear=result.optString("unclear","");
-                showSuggestions(result.optJSONArray("suggestions"));
+                showSuggestions(buildSuggestions(actions));
                 StringBuilder plan=new StringBuilder("הבנתי: ").append(summary).append(".");
                 if(!unclear.trim().isEmpty())plan.append("\nלא הבנתי: ").append(unclear.trim()).append(".");
                 if(!reply.trim().isEmpty() && !reply.equals("בסדר, מבצע את זה עכשיו."))plan.append("\n").append(reply.trim());
