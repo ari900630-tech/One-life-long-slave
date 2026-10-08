@@ -25,10 +25,12 @@ public class AgentAccessibilityService extends AccessibilityService {
     private String lastAnnouncedScreen="";
     private long lastAnnouncedAt=0;
     private boolean instagramGuard(String action){
-        AccessibilityNodeInfo root=getRootInActiveWindow();
-        String pkg=root==null||root.getPackageName()==null?"":root.getPackageName().toString();
-        boolean ok="com.instagram.android".equals(pkg);
-        if(!ok) recordDiagnostic("INSTAGRAM_GUARD","BLOCKED|action="+action+"|package="+pkg);
+        boolean ok=isInstagramActive();
+        if(!ok){
+            AccessibilityNodeInfo root=getRootInActiveWindow();
+            String pkg=root==null||root.getPackageName()==null?"":root.getPackageName().toString();
+            recordDiagnostic("INSTAGRAM_GUARD","BLOCKED|action="+action+"|package="+pkg+"|lastPackage="+lastWindowPackage);
+        }
         return ok;
     }
 
