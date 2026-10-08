@@ -62,9 +62,9 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         RuntimeLogger.log(this,"APP","package="+getPackageName()+" android="+Build.VERSION.RELEASE+" sdk="+Build.VERSION.SDK_INT);
         createChannel();
         startForeground(NOTIFICATION_ID, notification());
-        voice=new VoiceEngine(getApplicationContext(),this);
         // ללא חלונית צפה: השליטה מתבצעת מרחוק דרך הגשר.
-        ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cmd.trim().isEmpty()) onText(cmd); });
+        voice=new VoiceEngine(getApplicationContext(),this);
+ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cmd.trim().isEmpty()) onText(cmd); });
         try{ registerReceiver(screenReceiver,new IntentFilter("com.arilifelong.agent.SCREEN_CHANGED")); }catch(Exception ignored){}
     }
 
@@ -105,8 +105,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
 
     private void showBar() {
         // הוסר: הממשק היחיד של השירות הוא חלון הצ׳אט הצף.
-        // חלונית הצ'אט הצפה הוסרה.
-    }
+}
 
     private void createChatPanel(){
         if(wm==null)wm=(WindowManager)getSystemService(WINDOW_SERVICE);
@@ -698,3 +697,22 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         if(overlayLp==null||wm==null||bar==null)return;
         if("bottom".equalsIgnoreCase(position)||"למטה".equals(position)){ overlayLp.gravity=Gravity.BOTTOM|Gravity.LEFT; overlayLp.x=0; overlayLp.y=24; }
         else if("top".equalsIgnoreCase(position)||"למעלה".equals(position)){ overlayLp.gravity=Gravity.TOP|Gravity.LEFT; overlayLp.x=0; overlayLp.y=80; }
+        else { overlayLp.gravity=Gravity.TOP|Gravity.LEFT; overlayLp.y=Math.max(8,overlayLp.y); }
+        try{wm.updateViewLayout(bar,overlayLp);}catch(Exception ignored){}
+    }
+
+    @Override public int onStartCommand(Intent i,int flags,int id){
+        if(i!=null&&ACTION_UPDATE_NOTIFICATION.equals(i.getAction()))updateNotification(i.getStringExtra("text"));
+        return START_NOT_STICKY;
+    }
+
+    @Override public void onDestroy(){
+        RuntimeLogger.log(this,"APP","floating_service_onDestroy");
+        ApiClient.stopRemotePolling();
+        if(voice!=null){voice.destroy();voice=null;}
+        if(wm!=null&&bar!=null){try{wm.removeView(bar);}catch(Exception ignored){}}
+        super.onDestroy();
+    }
+
+    @Override public IBinder onBind(Intent i){return null;}
+}
