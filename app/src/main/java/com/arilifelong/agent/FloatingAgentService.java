@@ -20,6 +20,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     private volatile boolean cancelRequested=false;
     private volatile String activeCommand="";
     private volatile long commandGeneration=0;
+    private volatile long commandGeneration=0;
     private WindowManager wm;
     private View bar;
     private TextView status;
@@ -683,6 +684,10 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         setMode("⚙  מנתח…","בודק מה הבנתי ומה חסר");
         ApiClient.chat(text,new ApiClient.Callback(){
             @Override public void success(JSONObject result){
+                if(requestGeneration!=commandGeneration){
+                    RuntimeLogger.log(FloatingAgentService.this,"COMMAND_STALE","ignored success generation="+requestGeneration+" current="+commandGeneration+" text="+text);
+                    return;
+                }
                 JSONArray actions=result.optJSONArray("actions");
                 if(actions==null||actions.length()==0){
                     String unclearText="לא הצלחתי להבין מה לבצע. תסביר לי קצת אחרת.";
@@ -695,7 +700,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                 hidePlan();
                 showSuggestions(new JSONArray());
                 ActionResult ar=runActions(actions);
-                String resultText=ar.failed==0?"בוצע.":"חלק מהפעולות לא הצליחו.";
+                String resultText=ar.failed==0?"בוצע. מה תרצה שאעשה עכשיו?":"חלק מהפעולות לא הצליחו. מה תרצה שאעשה עכשיו?";
                 addConversation("הסוכן",resultText);
                 if(voice!=null)voice.speak(resultText);
                 setMode(ar.failed==0?"●  מוכן":"⚠  חלקי",resultText);
