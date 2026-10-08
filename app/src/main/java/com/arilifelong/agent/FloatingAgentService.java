@@ -280,9 +280,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             waitingForConfirmation=true;
             String summary=understood(a);
             hidePlan();
-            showPlan("הצעה שנבחרה: "+summary+".\
-\
-לחץ על אישור כדי שאבצע. תיקון כדי לבטל.");
+            showPlan("הצעה שנבחרה: "+summary+".\\n\\nלחץ על אישור כדי שאבצע. תיקון כדי לבטל.");
             setMode("✓  ממתין לאישור","בדוק את הפעולה לפני ביצוע");
         }catch(Exception e){ onText(q); }
     }
