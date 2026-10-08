@@ -361,18 +361,6 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             else voice.speak("לא הצלחתי לסגור את האפליקציה.",FloatingAgentService.this::startVoiceInput);
             return;
         }
-        boolean mentionsInstagram=(normalized.contains("instagram")||normalized.contains("אינסטגרם"));
-        boolean asksToOpenInstagram=mentionsInstagram &&
-                !normalized.contains("סגור") && !normalized.contains("close") && !normalized.contains("צא");
-        if(asksToOpenInstagram){
-            RuntimeLogger.log(this,"FAST_PATH","open_instagram text="+text);
-            setMode("⚙  פותח…","פותח את אינסטגרם");
-            boolean ok=ActionEngine.openApp(this,"com.instagram.android");
-            RuntimeLogger.log(this,"FAST_PATH_RESULT","open_instagram="+ok);
-            if(ok) voice.speak("פתחתי את אינסטגרם.",FloatingAgentService.this::startVoiceInput);
-            else voice.speak("לא הצלחתי לפתוח את אינסטגרם. בדוק שהאפליקציה מותקנת.",FloatingAgentService.this::startVoiceInput);
-            return;
-        }
         if(waitingForConfirmation){
             if(isYes(text)){ confirmPendingActions(); return; }
             if(isNo(text)){ cancelPendingConfirmation(); return; }
