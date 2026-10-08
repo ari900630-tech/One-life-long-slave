@@ -270,6 +270,7 @@ public class AgentAccessibilityService extends AccessibilityService {
         else if("back".equals(a))ok=ActionEngine.back();
         else if("type_comment".equals(a))ok=setText(target);
         else if("send".equals(a))ok=instagramClick("send|שלח|שליחה|Send|➤|✓");
+        else if("submit_search".equals(a)){ ok=setText(target); if(ok){ waitForInstagramUiChange(350); ok=instagramClick("search|חיפוש|Search|חפש|Go|עבור"); } }
         else if("open_result".equals(a)&&!target.isEmpty())ok=instagramClick(target);
         else if("click".equals(a)||"click_text".equals(a)||"click_button".equals(a)||"click_element".equals(a))ok=instagramClick(target);
         else if("click_content_description".equals(a)||"click_description".equals(a))ok=clickTextOrDescription(target);
