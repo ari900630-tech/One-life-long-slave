@@ -88,7 +88,7 @@ public final class ApiClient {
                     while(history.length()>20)history.remove(0);
                 }
                 JSONObject body=new JSONObject(); body.put("messages",messages);
-                body.put("mode","instagram");
+                body.put("mode","all");
                 RuntimeLogger.log(null,"API_CHAT_SEND","messages="+messages.length()+" bytes="+body.toString().length());
                 try(OutputStream os=c.getOutputStream()){ os.write(body.toString().getBytes("UTF-8")); }
                 int code=c.getResponseCode();
