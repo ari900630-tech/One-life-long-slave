@@ -179,10 +179,130 @@ app.get("/api/remote/status",(req,res)=>{
  * Claude connects to /mcp and can call tools that only enqueue commands
  * for the registered Android agent. Commands are never executed by Render.
  */
+
+// Minimal OAuth 2.1 authorization server for Claude Custom Connectors.
+// Access tokens are short-lived in-memory credentials scoped to this MCP server.
+const oauthCodes=new Map();
+const oauthTokens=new Map();
+const oauthClients=new Map();
+const OAUTH_ISSUER="https://one-life-long-slave.onrender.com";
+const OAUTH_RESOURCE=OAUTH_ISSUER+"/mcp";
+
+function oauthRedirectAllowed(uri){
+ try{
+  const u=new URL(uri);
+  return u.protocol==="https:" && (u.hostname==="claude.ai" || u.hostname.endsWith(".claude.ai") || u.hostname==="anthropic.com" || u.hostname.endsWith(".anthropic.com"));
+ }catch{return false}
+}
+function oauthMetadata(){
+ return {
+  issuer:OAUTH_ISSUER,
+  authorization_endpoint:OAUTH_ISSUER+"/authorize",
+  token_endpoint:OAUTH_ISSUER+"/token",
+  registration_endpoint:OAUTH_ISSUER+"/register",
+  response_types_supported:["code"],
+  grant_types_supported:["authorization_code"],
+  token_endpoint_auth_methods_supported:["none"],
+  code_challenge_methods_supported:["S256"],
+  scopes_supported:["mcp"],
+  client_id_metadata_document_supported:true,
+  authorization_response_iss_parameter_supported:true
+ };
+}
+app.get("/.well-known/oauth-protected-resource",(req,res)=>res.json({
+ resource:OAUTH_RESOURCE,
+ authorization_servers:[OAUTH_ISSUER],
+ scopes_supported:["mcp"]
+}));
+app.get("/.well-known/oauth-protected-resource/mcp",(req,res)=>res.json({
+ resource:OAUTH_RESOURCE,
+ authorization_servers:[OAUTH_ISSUER],
+ scopes_supported:["mcp"]
+}));
+app.get("/.well-known/oauth-authorization-server",(req,res)=>res.json(oauthMetadata()));
+
+app.post("/register",(req,res)=>{
+ const body=req.body||{};
+ const redirectUris=Array.isArray(body.redirect_uris)?body.redirect_uris.map(String):[];
+ if(!redirectUris.length || redirectUris.some(u=>!oauthRedirectAllowed(u))){
+  return res.status(400).json({error:"invalid_client_metadata"});
+ }
+ const clientId="client_"+crypto.randomUUID().replace(/-/g,"");
+ oauthClients.set(clientId,{redirect_uris:redirectUris,client_name:String(body.client_name||"Claude")});
+ res.status(201).json({
+  client_id:clientId,
+  client_name:String(body.client_name||"Claude"),
+  redirect_uris:redirectUris,
+  token_endpoint_auth_method:"none",
+  grant_types:["authorization_code"],
+  response_types:["code"]
+ });
+});
+
+app.get("/authorize",(req,res)=>{
+ const clientId=String(req.query.client_id||"");
+ const redirectUri=String(req.query.redirect_uri||"");
+ const responseType=String(req.query.response_type||"");
+ const state=String(req.query.state||"");
+ const challenge=String(req.query.code_challenge||"");
+ const scope=String(req.query.scope||"mcp");
+ if(responseType!=="code"||!clientId||!oauthRedirectAllowed(redirectUri)||!challenge){
+  return res.status(400).send("Invalid OAuth authorization request.");
+ }
+ const registered=oauthClients.get(clientId);
+ const clientLooksLikeCimd=/^https:\/\//.test(clientId);
+ if(registered && !registered.redirect_uris.includes(redirectUri)){
+  return res.status(400).send("Invalid redirect URI.");
+ }
+ if(!registered && !clientLooksLikeCimd){
+  return res.status(400).send("Unknown OAuth client.");
+ }
+ const payload=Buffer.from(JSON.stringify({clientId,redirectUri,state,challenge,scope})).toString("base64url");
+ res.type("html").send(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>הסוכן שלי</title></head><body style="font-family:sans-serif;max-width:520px;margin:50px auto;padding:20px;text-align:center"><h2>חיבור Claude ל"הסוכן שלי"</h2><p>Claude מבקש הרשאה להשתמש בכלי השליטה של הסוכן בטלפון.</p><form method="POST" action="/authorize/approve"><input type="hidden" name="request" value="${payload}"><button style="font-size:18px;padding:12px 24px" type="submit">אישור חיבור</button></form></body></html>`);
+});
+app.post("/authorize/approve",(req,res)=>{
+ try{
+  const raw=Buffer.from(String(req.body?.request||""),"base64url").toString("utf8");
+  const p=JSON.parse(raw);
+  if(!oauthRedirectAllowed(p.redirectUri)||!p.challenge)throw new Error("invalid");
+  const code=crypto.randomUUID().replace(/-/g,"");
+  oauthCodes.set(code,{...p,expiresAt:Date.now()+5*60*1000});
+  const u=new URL(p.redirectUri);
+  u.searchParams.set("code",code);
+  if(p.state)u.searchParams.set("state",p.state);
+  u.searchParams.set("iss",OAUTH_ISSUER);
+  res.redirect(u.toString());
+ }catch{res.status(400).send("Invalid OAuth request.")}
+});
+app.post("/token",(req,res)=>{
+ try{
+  const grant=String(req.body?.grant_type||"");
+  const code=String(req.body?.code||"");
+  const redirectUri=String(req.body?.redirect_uri||"");
+  const verifier=String(req.body?.code_verifier||"");
+  if(grant!=="authorization_code"||!code||!verifier)return res.status(400).json({error:"invalid_request"});
+  const item=oauthCodes.get(code);
+  if(!item||item.expiresAt<Date.now()||item.redirectUri!==redirectUri)return res.status(400).json({error:"invalid_grant"});
+  const digest=crypto.createHash("sha256").update(verifier).digest("base64url");
+  if(digest!==item.challenge)return res.status(400).json({error:"invalid_grant"});
+  oauthCodes.delete(code);
+  const accessToken="mcp_"+crypto.randomUUID().replace(/-/g,"");
+  oauthTokens.set(accessToken,{expiresAt:Date.now()+60*60*1000,clientId:item.clientId,scope:item.scope||"mcp"});
+  res.json({access_token:accessToken,token_type:"Bearer",expires_in:3600,scope:item.scope||"mcp"});
+ }catch{res.status(400).json({error:"invalid_request"})}
+});
+function oauthTokenValid(token){
+ const item=oauthTokens.get(token);
+ if(!item)return false;
+ if(item.expiresAt<Date.now()){oauthTokens.delete(token);return false}
+ return item.scope.split(/\s+/).includes("mcp");
+}
+
 function authorizeMcpRequest(req){
- const expected=String(process.env.CHAT_AGENT_KEY||"").trim();
  const auth=String(req.get("authorization")||"");
  const bearer=auth.startsWith("Bearer ")?auth.slice(7).trim():"";
+ if(bearer && oauthTokenValid(bearer))return true;
+ const expected=String(process.env.CHAT_AGENT_KEY||"").trim();
  const supplied=String(req.get("x-agent-key")||req.query?.key||bearer).trim();
  if(!expected||!supplied)return false;
  const a=Buffer.from(supplied);
@@ -261,7 +381,7 @@ const mcpHandler=createMcpHandler(buildMcpServer);
 app.all("/mcp",async(req,res)=>{
  if(!authorizeMcpRequest(req)){
   return res.status(401)
-   .set("WWW-Authenticate",'Bearer realm="one-life-long-slave-mcp"')
+   .set("WWW-Authenticate",`Bearer realm="one-life-long-slave-mcp", resource_metadata="${OAUTH_ISSUER}/.well-known/oauth-protected-resource/mcp"`)
    .json({error:"unauthorized"});
  }
  try{
