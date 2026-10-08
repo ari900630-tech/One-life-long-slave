@@ -45,10 +45,11 @@ const MODEL_TOOLS=TOOLS.map(t=>({
 }));
 function normalizeHeCommand(input){
  const original=String(input||"").trim();
- const s=original.toLowerCase().replace(/[!?.,؛،]/g," ").replace(/\\s+/g," ").trim();
+ const s=original.toLowerCase().replace(/[!?.,؛،]/g," ").replace(/\s+/g," ").trim();
  const actions=[];
  const push=(type,obj={})=>actions.push({type,...obj});
- if(/(פתח|תפתח|תעבור|עבור).*הודעות/.test(s)&&/אינסט/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"messages"});return actions;}\n if(/(פתח|תפתח|תעבור|עבור|לך|תלך).*התראות/.test(s)&&(/אינסט/.test(s)||/מסך ההתראות|להתראות/.test(s))){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"notifications"});return actions;}
+ if(/(פתח|תפתח|תעבור|עבור).*הודעות/.test(s)&&/אינסט/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"messages"});return actions;}
+ if(/(פתח|תפתח|תעבור|עבור|לך|תלך).*התראות/.test(s)&&(/אינסט/.test(s)||/מסך ההתראות|להתראות/.test(s))){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"notifications"});return actions;}
  if(/(תעבור|עבור|פתח|תפתח|לך|תלך).*חיפוש( באינסטגרם)?$/.test(s)||/מסך החיפוש/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"search"});return actions;}
  if(/((תן|תעשה|שים|תעשה לי|תן לי).*לייק.*(סרטון|סירטון|וידאו|רילס)|^(לייק|לייק לסרטון|תן לייק|תן לייק לסרטון)$)/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"like"});return actions;}
  if(/((שתף|תשתף|לשתף|שיתוף).*?(סרטון|סירטון|וידאו|רילס)|^(שתף את זה|שתף סרטון)$)/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"share"});return actions;}
@@ -57,12 +58,25 @@ function normalizeHeCommand(input){
  if(/(עשה|תעשה|תעשי|שים|תשים).*לייק/.test(s)&&/אינסט/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"like"});return actions;}
  if(/(שמור|תשמור|לשמור).*פוסט/.test(s)&&/אינסט/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"save"});return actions;}
  const searchMatch=s.match(/(?:חפש|תחפש|לחפש|חיפוש)\s+(?:את\s+)?(.+?)(?:\s+באינסטגרם|\s+באינסטה)$/);
+ const combinedSearch=s.match(/(?:פתח|תפתח|תעבור|עבור|לך|תלך|תחפש|חפש|לחפש|חיפוש).*?(?:באינסטגרם|באינסטה)?\s*(?:וחפש|חפש)\s+(?:את\s+)?(.+?)(?:\s+באינסטגרם|\s+באינסטה)?$/);
+ if(combinedSearch){
+  const q=combinedSearch[1].trim();
+  if(q){
+   push("open_app",{package:"com.instagram.android"});
+   push("instagram_action",{action:"search"});
+   push("instagram_action",{action:"wait",value:"650"});
+   push("instagram_action",{action:"type_text",value:q});
+   push("instagram_action",{action:"wait",value:"300"});
+   push("instagram_action",{action:"submit_search",value:q});
+   return actions;
+  }
+ }
  if(searchMatch){const q=searchMatch[1].trim();if(q){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"search"});push("instagram_action",{action:"wait",value:"650"});push("instagram_action",{action:"type_text",value:q});push("instagram_action",{action:"wait",value:"300"});push("instagram_action",{action:"submit_search",value:q});return actions;}}
  // Deterministic navigation commands must never depend on an LLM choosing the wrong tool.
  if(/^(תעבור|תעביר|תלך|עבור|לך) (אל )?(מסך )?הבית$/.test(s)||s.includes("תעבור למסך הבית")||s.includes("לעבור למסך הבית")){
   push("open_app",{package:"com.instagram.android"}); push("instagram_action",{action:"home"}); return actions;
  }
- if(/^(פתח|תפתח|תפתחתה|תפתחה) את? ?אינסטגרם$/.test(s)||s==="instagram"||s==="אינסטגרם"){
+ if(/^(פתח|תפתח|תפתחתה|תפתחה|תח) את? ?אינסטגרם$/.test(s)||s==="instagram"||s==="אינסטגרם"){
   push("open_app",{package:"com.instagram.android"}); return actions;
  }
  if(/^(סגור|תסגור|תסגור את|לסגור) (את )?אינסטגרם$/.test(s)||s.includes("תסגור את אינסטגרם")){
