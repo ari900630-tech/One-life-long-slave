@@ -95,7 +95,38 @@ function selectModelTools(mode){
  return MODEL_TOOLS.filter(t=>names.includes(t.function.name));
 }
 function safeArgs(s){try{return JSON.parse(s||"{}")}catch{return {}}}
-function callsToActions(calls){return (calls||[]).map(c=>({type:c.function.name,...safeArgs(c.function.arguments)}))}
+function callsToActions(calls){
+ if(!Array.isArray(calls))return [];
+ return calls.map(c=>({type:c?.function?.name,...safeArgs(c?.function?.arguments)})).filter(x=>x.type);
+}
+function actionsFromModelContent(content){
+ const raw=String(content||"").trim();
+ if(!raw)return [];
+ const candidates=[];
+ candidates.push(raw);
+ const fenced=raw.match(/\`\`\`(?:json)?\\s*([\\s\\S]*?)\`\`\`/i);
+ if(fenced)candidates.push(fenced[1].trim());
+ const start=raw.indexOf("[");
+ const end=raw.lastIndexOf("]");
+ if(start>=0&&end>start)candidates.push(raw.slice(start,end+1));
+ for(const candidate of candidates){
+  try{
+   const parsed=JSON.parse(candidate);
+   if(!Array.isArray(parsed))continue;
+   const out=parsed.map(x=>{
+    if(!x||typeof x!=="object")return null;
+    if(x.type)return x;
+    if(x.name)return {type:x.name,arguments:x.arguments||{}};
+    return null;
+   }).filter(Boolean).map(x=>{
+    if(x.arguments&&typeof x.arguments==="object")return {type:x.type,...x.arguments};
+    return x;
+   });
+   if(out.length)return out;
+  }catch(_){}
+ }
+ return [];
+}
 
 app.get("/api/health",(req,res)=>res.json({ok:true,groqConfigured:!!process.env.GROQ_API_KEY,service:"phone-agent"}));
 
@@ -153,7 +184,7 @@ app.post("/api/chat",async(req,res)=>{
   }
   if(!response || !response.ok)return res.status(response?.status||503).json({error:lastError||"כל מודלי ה-AI אינם זמינים כרגע"});
   const msg=data?.choices?.[0]?.message||{};
-  const actions=repairActions(callsToActions(msg.tool_calls),lastUser);
+  const modelActions=callsToActions(msg.tool_calls);\n  const contentActions=modelActions.length?[]:actionsFromModelContent(msg.content);\n  const actions=repairActions(modelActions.length?modelActions:contentActions,lastUser);
   const suggestions=(String(req.body?.mode||"all").toLowerCase()==="instagram")?["עשה לייק","פתח הודעות","עבור לרילס","חפש באינסטגרם","עבור לפוסט הבא","שמור את הפוסט"]:["פתח הגדרות","פתח Chrome","חזור אחורה","עבור למסך הבית","פתח התראות","העלה עוצמת קול"];
   if(actions.length){ const names=actions.map(a=>a.type).filter(Boolean); return res.json({reply:msg.content||"",actions,actionSummary:names,unclear:msg.content||""}); }
   res.json({reply:msg.content||"לא התקבלה תשובה",actions:[]});
