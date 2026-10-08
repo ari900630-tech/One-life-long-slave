@@ -48,6 +48,15 @@ function normalizeHeCommand(input){
  const s=original.toLowerCase().replace(/[!?.,؛،]/g," ").replace(/\s+/g," ").trim();
  const actions=[];
  const push=(type,obj={})=>actions.push({type,...obj});
+ // Commands that mean "close the current assistant and open Instagram" are a single
+ // navigation intent. Never emit close_current_app because the Android runtime is
+ // intentionally locked to Instagram actions.
+ if(/(תסגור|סגור|לסגור).*?(האפליקציה|האפליקצייה|היישום).*?(ותפתח|ואז תפתח|ולפתוח|ואז לפתוח).*?אינסטגרם/.test(s) ||
+    /(תסגור|סגור|לסגור).*?(האפליקציה|האפליקצייה|היישום).*?(ו|ואז).*?(פתח|תפתח|לפתוח).*?אינסטגרם/.test(s) ||
+    /פתח.*?אינסטגרם.*?(אחרי|לאחר).*?(סגור|סגירת).*?(האפליקציה|האפליקצייה)/.test(s)){
+   push("open_app",{package:"com.instagram.android"});
+   return actions;
+ }
  if(/(פתח|תפתח|תעבור|עבור).*הודעות/.test(s)&&/אינסט/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"messages"});return actions;}
  if(/(פתח|תפתח|תעבור|עבור|לך|תלך).*התראות/.test(s)&&(/אינסט/.test(s)||/מסך ההתראות|להתראות/.test(s))){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"notifications"});return actions;}
  if(/(תעבור|עבור|פתח|תפתח|לך|תלך).*חיפוש( באינסטגרם)?$/.test(s)||/מסך החיפוש/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"search"});return actions;}
