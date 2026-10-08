@@ -11,7 +11,7 @@ import android.widget.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-public class FloatingAgentService extends Service implements VoiceEngine.Listener {
+public class FloatingAgentService extends Service implements VoiceEngine.Listener {\n    private static volatile FloatingAgentService activeInstance;
     private WindowManager wm;
     private View bar;
     private TextView status;
@@ -164,7 +164,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
 
         TextView close=label("×",27,Color.rgb(80,81,95));
         close.setGravity(Gravity.CENTER);
-        close.setOnClickListener(v->stopSelf());
+        close.setOnClickListener(v->closeChatPanel());
 
         TextView dragHandle=label("⋮⋮",18,Color.rgb(145,146,158));
         dragHandle.setGravity(Gravity.CENTER);
@@ -245,7 +245,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         }catch(Exception e){RuntimeLogger.log(this,"CHAT_ERROR","add_panel="+e);}
     }
 
-    private void toggleChat(){
+    private void closeChatPanel(){\n        try{\n            if(wm!=null && chatPanel!=null){ wm.removeView(chatPanel); }\n        }catch(Exception ignored){}\n        chatPanel=null;\n        chatInput=null;\n        chatMessage=null;\n        suggestionsList=null;\n        suggestionsTitle=null;\n        chatConfirm=null;\n        stopSelf();\n    }\n\n    private void handleSuggestion(String command){\n        if(command==null)return;\n        String q=command.trim();\n        JSONArray a=new JSONArray();\n        try{\n            JSONObject x=new JSONObject();\n            x.put("type","instagram_action");\n            if(q.contains("לייק")) x.put("action","like");\n            else if(q.contains("הודעות")) x.put("action","messages");\n            else if(q.contains("רילס")) x.put("action","reels");\n            else if(q.contains("פוסט הבא")) x.put("action","next");\n            else if(q.contains("שמור")) x.put("action","save");\n            else if(q.contains("שתף")) x.put("action","share");\n            else if(q.contains("פרופיל")) x.put("action","profile");\n            else if(q.contains("חפש")) x.put("action","search");\n            else { onText(q); return; }\n            a.put(x);\n            pendingActions=a;\n            waitingForConfirmation=true;\n            String summary=understood(a);\n            hidePlan();\n            showPlan("הצעה שנבחרה: "+summary+".\\n\\nלחץ על אישור כדי שאבצע. תיקון כדי לבטל.");\n            setMode("✓  ממתין לאישור","בדוק את הפעולה לפני ביצוע");\n        }catch(Exception e){ onText(q); }\n    }\n\n    private void toggleChat(){
         if(chatPanel==null)return;
         boolean show=chatPanel.getVisibility()!=View.VISIBLE;
         chatPanel.setVisibility(show?View.VISIBLE:View.GONE);
@@ -601,7 +601,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
 
     @Override public int onStartCommand(Intent i,int flags,int id){
         if(i!=null&&ACTION_UPDATE_NOTIFICATION.equals(i.getAction()))updateNotification(i.getStringExtra("text"));
-        return START_STICKY;
+        return START_NOT_STICKY;
     }
 
     @Override public void onDestroy(){
