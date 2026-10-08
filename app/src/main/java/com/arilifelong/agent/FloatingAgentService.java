@@ -277,11 +277,11 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             else { onText(q); return; }
             a.put(x);
             pendingActions=a;
-            waitingForConfirmation=true;
-            String summary=understood(a);
+            waitingForConfirmation=false;
             hidePlan();
-            showPlan("הצעה שנבחרה: "+summary+".\\n\\nלחץ על אישור כדי שאבצע. תיקון כדי לבטל.");
-            setMode("✓  ממתין לאישור","בדוק את הפעולה לפני ביצוע");
+            setMode("⚙  מבצע…","מבצע את ההצעה שנבחרה");
+            ActionResult ar=runActions(a);
+            setMode(ar.failed==0?"●  מוכן":"⚠  חלקי",ar.failed==0?"בוצע. אפשר לתת פקודה נוספת":"חלק מהפעולות לא בוצעו");
         }catch(Exception e){ onText(q); }
     }
 
@@ -492,7 +492,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                     return;
                 }
                 pendingActions=actions;
-                waitingForConfirmation=true;
+                waitingForConfirmation=false;
                 String reply=result.optString("reply","");
                 String summary=understood(actions);
                 String unclear=result.optString("unclear","");
@@ -500,10 +500,12 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 StringBuilder plan=new StringBuilder("הבנתי: ").append(summary).append(".");
                 if(!unclear.trim().isEmpty())plan.append("\nלא הבנתי: ").append(unclear.trim()).append(".");
                 if(!reply.trim().isEmpty() && !reply.equals("בסדר, מבצע את זה עכשיו."))plan.append("\n").append(reply.trim());
-                plan.append("\n\nלחץ על אישור כדי שאבצע. תיקון כדי לתקן.");
                 showPlan(plan.toString());
-                setMode("✓  ממתין לאישור","בדוק את מה שהבנתי לפני ביצוע");
-                RuntimeLogger.log(FloatingAgentService.this,"WAITING_CONFIRMATION","actions="+actions.length()+" command="+text);
+                setMode("⚙  מבצע…","מבצע את הבקשה");
+                ActionResult ar=runActions(actions);
+                hidePlan();
+                setMode(ar.failed==0?"●  מוכן":"⚠  חלקי",ar.failed==0?"בוצע. אפשר לתת פקודה נוספת":"חלק מהפעולות לא בוצעו");
+                RuntimeLogger.log(FloatingAgentService.this,"AUTO_EXECUTION","actions="+actions.length()+" command="+text);
             }
             @Override public void error(String message){
                 setMode("⚠  לא הצלחתי","הפעולה נכשלה — ממשיך להקשיב");
