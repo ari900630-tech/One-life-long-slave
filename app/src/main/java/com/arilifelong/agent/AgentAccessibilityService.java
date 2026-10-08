@@ -395,18 +395,8 @@ public boolean isInstagramActive(){
     public boolean home(){recordDiagnostic("INSTAGRAM_GUARD","BLOCKED|action=home");return false;}
     public boolean recents(){recordDiagnostic("INSTAGRAM_GUARD","BLOCKED|action=recents");return false;}
     public boolean closeCurrentApp(){
-        recordDiagnostic("INSTAGRAM_GUARD","BLOCKED|action=closeCurrentApp"); return false;
-        /*
-        RuntimeLogger.log(this,"CLOSE_APP","opening recents");
-        if(!performGlobalAction(GLOBAL_ACTION_RECENTS))return false;
-        try{Thread.sleep(450);}catch(InterruptedException e){Thread.currentThread().interrupt();}
-        float w=getResources().getDisplayMetrics().widthPixels;
-        float h=getResources().getDisplayMetrics().heightPixels;
-        boolean swiped=swipe(w/2f,h*0.70f,w/2f,h*0.22f,500);
-        RuntimeLogger.log(this,"CLOSE_APP","recents_swipe="+swiped);
-        try{Thread.sleep(350);}catch(InterruptedException e){Thread.currentThread().interrupt();}
-        performGlobalAction(GLOBAL_ACTION_HOME);
-        return swiped;
+        recordDiagnostic("INSTAGRAM_GUARD","BLOCKED|action=closeCurrentApp");
+        return false;
     }
     public boolean notifications(){recordDiagnostic("INSTAGRAM_GUARD","BLOCKED|action=notifications");return false;}
     public boolean quickSettings(){recordDiagnostic("INSTAGRAM_GUARD","BLOCKED|action=quickSettings");return false;}
