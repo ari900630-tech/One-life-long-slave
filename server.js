@@ -3,6 +3,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import multer from "multer";
 import crypto from "crypto";
+import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
+import { toNodeHandler } from "@modelcontextprotocol/node";
+import * as z from "zod/v4";
 
 const app=express();
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
@@ -170,5 +173,105 @@ app.get("/api/remote/status",(req,res)=>{
  if(!token||![...remoteDevices.values()].includes(token))return res.status(401).json({error:"unauthorized"});
  res.json({ok:true,connected:true,queued:(remoteQueue.get(token)||[]).length});
 });
+
+/*
+ * Claude / MCP remote-control bridge.
+ * Claude connects to /mcp and can call tools that only enqueue commands
+ * for the registered Android agent. Commands are never executed by Render.
+ */
+function authorizeMcpRequest(req){
+ const expected=String(process.env.CHAT_AGENT_KEY||"").trim();
+ const auth=String(req.get("authorization")||"");
+ const bearer=auth.startsWith("Bearer ")?auth.slice(7).trim():"";
+ const supplied=String(req.get("x-agent-key")||req.query?.key||bearer).trim();
+ if(!expected||!supplied)return false;
+ const a=Buffer.from(supplied);
+ const b=Buffer.from(expected);
+ return a.length===b.length && crypto.timingSafeEqual(a,b);
+}
+
+function buildMcpServer(){
+ const server=new McpServer(
+  {name:"one-life-long-slave-phone-agent",version:"1.0.0"},
+  {capabilities:{tools:{}}}
+ );
+
+ server.registerTool(
+  "phone_command",
+  {
+   description:"שלח פקודה טבעית בעברית לסוכן Android המחובר. לדוגמה: פתח Instagram, עבור למסך הבית, פתח Chrome.",
+   inputSchema:z.object({
+    text:z.string().min(1).max(2000).describe("הפקודה לביצוע בטלפון"),
+    deviceId:z.string().optional().describe("מזהה מכשיר ספציפי; אם לא נמסר, הפקודה נשלחת לכל המכשירים המחוברים")
+   })
+  },
+  async ({text,deviceId})=>{
+   const clean=String(text).trim();
+   const id=String(deviceId||"").trim();
+   let targets=[];
+   if(id){
+    const token=remoteDevices.get(id);
+    if(token)targets.push(token);
+   }else{
+    targets=[...remoteDevices.values()];
+   }
+   if(!targets.length){
+    return {isError:true,content:[{type:"text",text:"אין כרגע מכשיר Android רשום ומחובר לסוכן."}]};
+   }
+   const commandId=crypto.randomUUID();
+   for(const token of targets){
+    const q=remoteQueue.get(token)||[];
+    q.push({id:commandId,text:clean,createdAt:Date.now(),source:"mcp"});
+    remoteQueue.set(token,q);
+   }
+   return {
+    content:[{
+     type:"text",
+     text:`הפקודה נשלחה לסוכן Android. מזהה: ${commandId}. מכשירים: ${targets.length}.`
+    }]
+   };
+  }
+ );
+
+ server.registerTool(
+  "phone_status",
+  {
+   description:"בדוק אילו מכשירי Android רשומים וכמה פקודות ממתינות לכל מכשיר.",
+   inputSchema:z.object({})
+  },
+  async ()=>{
+   const devices=[...remoteDevices.entries()].map(([deviceId,token])=>({
+    deviceId,
+    queued:(remoteQueue.get(token)||[]).length
+   }));
+   return {
+    content:[{
+     type:"text",
+     text:JSON.stringify({connectedDevices:devices.length,devices})
+    }]
+   };
+  }
+ );
+
+ return server;
+}
+
+const mcpHandler=createMcpHandler(buildMcpServer);
+
+app.all("/mcp",async(req,res)=>{
+ if(!authorizeMcpRequest(req)){
+  return res.status(401)
+   .set("WWW-Authenticate",'Bearer realm="one-life-long-slave-mcp"')
+   .json({error:"unauthorized"});
+ }
+ try{
+  const nodeHandler=toNodeHandler(mcpHandler);
+  await nodeHandler(req,res,req.body);
+ }catch(e){
+  console.error("MCP_ERROR",e);
+  if(!res.headersSent)res.status(500).json({error:"MCP server error"});
+ }
+});
+
 app.get("/{*splat}",(req,res)=>res.sendFile(path.join(__dirname,"public","index.html")));
 app.listen(PORT,()=>console.log(`Phone Agent listening on ${PORT}`));
