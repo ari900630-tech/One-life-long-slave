@@ -189,7 +189,14 @@ app.post("/api/chat",async(req,res)=>{
   if(!key)return res.status(503).json({error:"השרת עדיין לא מחובר ל-GROQ_API_KEY"});
   const rawMessages=Array.isArray(req.body?.messages)?req.body.messages:[];
   const lastUser=rawMessages.filter(m=>m?.role==="user").at(-1)?.content||"";
-  const conversational=/^(תודה|תודה רבה|שלום|היי|הי|אהלן|אוקיי|בסדר|מעולה|כן|לא|ביי|להתראות|לילה טוב|בוקר טוב|ערב טוב)[!. ,]*$/iu.test(String(lastUser).trim());
+  const normalizedLast=String(lastUser).replace(/\s+/g," ").trim();
+  // If speech recognition cuts off before the search term, ask for the missing term.
+  const incompleteSearch=/(?:פתח|תפתח|תעבור|עבור|לך|תלך|להיכנס|היכנס|כנס).*?(?:אינסטגרם|אינסטה).*?(?:וחפש|ולחפש|חפש|לחפש)\s*(?:את)?\s*$/iu.test(normalizedLast) ||
+    /^(?:חפש|תחפש|לחפש|חיפוש)\s*(?:באינסטגרם|באינסטה)?\s*(?:את)?\s*$/iu.test(normalizedLast);
+  if(incompleteSearch){
+   return res.json({reply:"לא שמעתי מה לחפש באינסטגרם. אמור לי מה לחפש, למשל: חפש באינסטגרם יוסי.",actions:[]});
+  }
+  const conversational=/^(תודה|תודה רבה|שלום|היי|הי|אהלן|אוקיי|בסדר|מעולה|כן|לא|ביי|להתראות|לילה טוב|בוקר טוב|ערב טוב|מה קורה|מה קורא|מה קוראה)[!. ,?]*$/iu.test(normalizedLast);
   const messages=conversational?[]:rawMessages.slice(-10).map(m=>({...m,content:typeof m.content==="string"?m.content.slice(-1000):m.content}));
   // אם למודל אחד נגמרת מכסת הטוקנים/Rate Limit, עוברים אוטומטית למודל אחר שעדיין זמין.
   const models=["openai/gpt-oss-20b","openai/gpt-oss-120b","qwen/qwen3.8-27b"];
