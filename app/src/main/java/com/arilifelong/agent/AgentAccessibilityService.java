@@ -55,10 +55,17 @@ public boolean isInstagramActive(){
     @Override public void onAccessibilityEvent(AccessibilityEvent event){
         if(event==null){RuntimeLogger.log(this,"ACCESSIBILITY_EVENT","null");return;}
         RuntimeLogger.log(this,"ACCESSIBILITY_EVENT","type="+event.getEventType()+" package="+event.getPackageName());
+        String eventPkg=event.getPackageName()==null?"":event.getPackageName().toString();
+        if(!"com.instagram.android".equals(eventPkg) && (treatAsWindowEvent(event.getEventType()))){
+            FloatingAgentService.cancelIfInstagramExited();
+        }
         int t=event.getEventType();
         if(t!=AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && t!=AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED)return;
         if(t==AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED && System.currentTimeMillis()-lastAnnouncedAt<1200)return;
         announceScreenIfChanged();
+    }
+    private boolean treatAsWindowEvent(int type){
+        return type==AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || type==AccessibilityEvent.TYPE_WINDOWS_CHANGED || type==AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED;
     }
     private void announceScreenIfChanged(){
         AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return;
