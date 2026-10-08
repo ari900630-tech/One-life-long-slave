@@ -670,6 +670,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                 if(voice!=null)voice.speak(resultText);
                 setMode(ar.failed==0?"●  מוכן":"⚠  חלקי",resultText);
                 RuntimeLogger.log(FloatingAgentService.this,"ACTIONS_EXECUTED_DIRECTLY","actions="+actions.length()+" command="+text+" failed="+ar.failed);
+            }
             @Override public void error(String message){
                 String errorText="נתקלתי בבעיה בביצוע הבקשה. אפשר לנסות שוב.";
                 addConversation("הסוכן",errorText+" ["+String.valueOf(message)+"]");
