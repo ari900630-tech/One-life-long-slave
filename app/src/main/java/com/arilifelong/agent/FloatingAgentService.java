@@ -190,30 +190,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         chatPanel.setBackground(shell);
         chatPanel.setElevation(18f);
 
-        chatInput=new EditText(this);
-        chatInput.setSingleLine(true);
-        chatInput.setHint("כתוב מה לעשות...");
-        chatInput.setTextSize(15);
-        chatInput.setTextColor(Color.rgb(28,29,43));
-        chatInput.setHintTextColor(Color.rgb(145,146,158));
-        chatInput.setGravity(Gravity.CENTER_VERTICAL|Gravity.RIGHT);
-        chatInput.setPadding(10,0,10,0);
-
-        Button send=new Button(this);
-        send.setText("שלח");
-        send.setTextSize(12);
-        send.setTextColor(Color.WHITE);
-        send.setAllCaps(false);
-        send.setBackground(bg(Color.rgb(103,87,217),22));
-        send.setMinHeight(42);
-        send.setOnClickListener(v->sendChatText());
-        chatInput.setOnEditorActionListener((v,id,event)->{sendChatText();return true;});
-        chatInput.addTextChangedListener(new TextWatcher(){
-            @Override public void beforeTextChanged(CharSequence s,int start,int count,int after){}
-            @Override public void onTextChanged(CharSequence s,int start,int before,int count){ updateLiveSuggestions(s==null?"":s.toString()); }
-            @Override public void afterTextChanged(Editable e){}
-        });
-
+        // Voice-only interface: no text input or send button.
         chatMessage=label("",14,Color.rgb(55,56,70));
         chatMessage.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);
         chatMessage.setPadding(12,4,12,4);
@@ -280,8 +257,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         topRow.addView(dragHandle,new LinearLayout.LayoutParams(26,48));
         topRow.addView(mic,new LinearLayout.LayoutParams(46,44));
         topRow.addView(historyButton,new LinearLayout.LayoutParams(58,44));
-        topRow.addView(chatInput,new LinearLayout.LayoutParams(0,48,1));
-        topRow.addView(send,new LinearLayout.LayoutParams(58,44));
+        topRow.addView(mic,new LinearLayout.LayoutParams(0,44,1));
         topRow.addView(close,new LinearLayout.LayoutParams(38,48));
 
         historyScroll=new ScrollView(this);
@@ -685,24 +661,16 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                     if(voice!=null)voice.speak(unclearText);
                     return;
                 }
-                pendingActions=actions;
+                pendingActions=null;
                 waitingForConfirmation=false;
-                String reply=result.optString("reply","");
-                String summary=understood(actions);
-                String naturalReply=!reply.trim().isEmpty()?reply.trim():"הבנתי. אתה רוצה "+summary+".\\n";
-                addConversation("הסוכן",naturalReply.trim());
-                if(voice!=null)voice.speak(naturalReply.trim());
-                String unclear=result.optString("unclear","");
-                JSONArray serverSuggestions=result.optJSONArray("suggestions");
-                showSuggestions(serverSuggestions!=null && serverSuggestions.length()>0 ? serverSuggestions : buildSuggestions(actions));
-                StringBuilder plan=new StringBuilder("הבנתי: ").append(summary).append(".");
-                if(!unclear.trim().isEmpty())plan.append("\nלא הבנתי: ").append(unclear.trim()).append(".");
-                if(!reply.trim().isEmpty() && !reply.equals("בסדר, מבצע את זה עכשיו."))plan.append("\n").append(reply.trim());
-                plan.append("\n\nבחר הצעה כדי שאבצע אותה מיד.");
-                showPlan(plan.toString());
-                setMode("●  בחר פעולה","בחר אחת מההצעות למטה");
-                RuntimeLogger.log(FloatingAgentService.this,"SHOW_SUGGESTIONS","actions="+actions.length()+" command="+text);
-            }
+                hidePlan();
+                showSuggestions(new JSONArray());
+                ActionResult ar=runActions(actions);
+                String resultText=ar.failed==0?"בוצע.":"חלק מהפעולות לא הצליחו.";
+                addConversation("הסוכן",resultText);
+                if(voice!=null)voice.speak(resultText);
+                setMode(ar.failed==0?"●  מוכן":"⚠  חלקי",resultText);
+                RuntimeLogger.log(FloatingAgentService.this,"ACTIONS_EXECUTED_DIRECTLY","actions="+actions.length()+" command="+text+" failed="+ar.failed);
             @Override public void error(String message){
                 String errorText="נתקלתי בבעיה בביצוע הבקשה. אפשר לנסות שוב.";
                 addConversation("הסוכן",errorText+" ["+String.valueOf(message)+"]");
