@@ -218,7 +218,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE,
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT);
-        cp.gravity=Gravity.TOP|Gravity.LEFT; cp.x=0; cp.y=8;
+        cp.gravity=Gravity.BOTTOM|Gravity.LEFT; cp.x=0; cp.y=12;
         chatLp=cp;
         try{wm.addView(chatPanel,cp);}catch(Exception e){RuntimeLogger.log(this,"CHAT_ERROR","add_panel="+e);}
         chatPanel.setVisibility(View.VISIBLE);
