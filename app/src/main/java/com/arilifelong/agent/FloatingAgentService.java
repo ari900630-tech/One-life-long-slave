@@ -20,6 +20,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     private volatile boolean cancelRequested=false;
     private volatile String activeCommand="";
     private volatile long commandGeneration=0;
+    private volatile long executingGeneration=0;
     private WindowManager wm;
     private View bar;
     private TextView status;
@@ -678,6 +679,10 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         setMode("⚙  מנתח…","בודק מה הבנתי ומה חסר");
         ApiClient.chat(text,new ApiClient.Callback(){
             @Override public void success(JSONObject result){
+                if(requestGeneration!=commandGeneration){
+                    RuntimeLogger.log(FloatingAgentService.this,"COMMAND_STALE","ignored success generation="+requestGeneration+" current="+commandGeneration+" text="+text);
+                    return;
+                }
                 JSONArray actions=result.optJSONArray("actions");
                 if(actions==null||actions.length()==0){
                     String unclearText="לא הצלחתי להבין מה לבצע. תסביר לי קצת אחרת.";
@@ -690,11 +695,15 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                 hidePlan();
                 showSuggestions(new JSONArray());
                 ActionResult ar=runActions(actions);
-                String resultText=ar.failed==0?"בוצע.":"חלק מהפעולות לא הצליחו.";
+                if(requestGeneration!=commandGeneration){
+                    RuntimeLogger.log(FloatingAgentService.this,"COMMAND_STALE","ignored completion generation="+requestGeneration+" current="+commandGeneration+" text="+text);
+                    return;
+                }
+                String resultText=ar.failed==0?"בוצע. מה תרצה שאעשה עכשיו?":"חלק מהפעולות לא הצליחו. מה תרצה שאעשה עכשיו?";
                 addConversation("הסוכן",resultText);
                 if(voice!=null)voice.speak(resultText);
                 setMode(ar.failed==0?"●  מוכן":"⚠  חלקי",resultText);
-                RuntimeLogger.log(FloatingAgentService.this,"ACTIONS_EXECUTED_DIRECTLY","actions="+actions.length()+" command="+text+" failed="+ar.failed);
+                RuntimeLogger.log(FloatingAgentService.this,"ACTIONS_EXECUTED_DIRECTLY","actions="+actions.length()+" command="+text+" failed="+ar.failed+" generation="+requestGeneration);
             }
             @Override public void error(String message){
                 if(requestGeneration!=commandGeneration){
@@ -770,6 +779,8 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
 
     private ActionResult runActions(JSONArray actions){
         ActionResult result=new ActionResult();
+        final long executionGeneration=commandGeneration;
+        executingGeneration=executionGeneration;
         if(actions==null)return result;
         result.total=actions.length();
         actionExecutionActive=true;
@@ -781,6 +792,10 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         for(int z=0;z<actions.length();z++){ estimates[z]=estimateActionMs(actions.optJSONObject(z)); totalEstimate+=estimates[z]; }
         try{
             for(int i=0;i<actions.length();i++){
+                if(executionGeneration!=commandGeneration){
+                    cancelRequested=true;
+                    RuntimeLogger.log(this,"ACTION_CANCELLED","reason=newer_command|executionGeneration="+executionGeneration+"|currentGeneration="+commandGeneration);
+                }
                 if(cancelRequested){
                     result.failed += actions.length()-i;
                     break;
@@ -819,11 +834,11 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                     case "open_app":
                         if(!ActionEngine.openApp(this,x.optString("package")))throw new IllegalStateException("open_app failed: "+x.optString("package"));
                         if("com.instagram.android".equals(x.optString("package",""))){
-                            long waitUntil=System.currentTimeMillis()+4500;
+                            long waitUntil=System.currentTimeMillis()+8000;
                             while(!instagramUiReady() && System.currentTimeMillis()<waitUntil && !cancelRequested){
                                 try{Thread.sleep(100);}catch(InterruptedException e){Thread.currentThread().interrupt();break;}
                             }
-                            if(!instagramUiReady())throw new IllegalStateException("Instagram did not become active");
+                            if(!instagramUiReady())throw new IllegalStateException("Instagram did not become active after 8s");
                             instagramWasReached=true;
                         }
                         break;
