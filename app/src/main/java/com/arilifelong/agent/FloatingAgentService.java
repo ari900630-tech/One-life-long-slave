@@ -64,6 +64,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         startForeground(NOTIFICATION_ID, notification());
         voice=new VoiceEngine(getApplicationContext(),this);
         createChatPanel();
+        ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cmd.trim().isEmpty()) onText(cmd); });
         try{ registerReceiver(screenReceiver,new IntentFilter("com.arilifelong.agent.SCREEN_CHANGED")); }catch(Exception ignored){}
     }
 
@@ -709,6 +710,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
 
     @Override public void onDestroy(){
         RuntimeLogger.log(this,"APP","floating_service_onDestroy");
+        ApiClient.stopRemotePolling();
         if(voice!=null){voice.destroy();voice=null;}
         if(wm!=null&&bar!=null){try{wm.removeView(bar);}catch(Exception ignored){}}
         super.onDestroy();

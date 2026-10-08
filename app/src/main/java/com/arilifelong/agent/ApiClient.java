@@ -7,6 +7,7 @@ import org.json.JSONObject;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.UUID;
 
 public final class ApiClient {
     public interface Callback { void success(JSONObject result); void error(String message); }
@@ -14,6 +15,39 @@ public final class ApiClient {
     private static final JSONArray history=new JSONArray();
     private static final Object HISTORY_LOCK=new Object();
     private ApiClient(){}
+
+    private static final String REMOTE_PREFS="remote_control";
+    private static volatile boolean remoteRunning=false;
+    public static void startRemotePolling(final android.content.Context context, final java.util.function.Consumer<String> onCommand){
+        if(remoteRunning)return; remoteRunning=true;
+        new Thread(() -> {
+            try{
+                android.content.SharedPreferences p=context.getSharedPreferences(REMOTE_PREFS,0);
+                String deviceId=p.getString("device_id","");
+                if(deviceId.isEmpty()){deviceId=UUID.randomUUID().toString();p.edit().putString("device_id",deviceId).apply();}
+                String token=p.getString("token","");
+                if(token.isEmpty()){token=registerRemote(deviceId);p.edit().putString("token",token).apply();}
+                while(remoteRunning){
+                    try{String cmd=pollRemote(token);if(cmd!=null&&!cmd.isEmpty())new Handler(Looper.getMainLooper()).post(() -> onCommand.accept(cmd));}
+                    catch(Exception ignored){}
+                    Thread.sleep(1500);
+                }
+            }catch(Exception ignored){}
+        },"remote-command-poll").start();
+    }
+    public static void stopRemotePolling(){remoteRunning=false;}
+    private static String registerRemote(String deviceId)throws Exception{
+        HttpURLConnection c=(HttpURLConnection)new URL(DEFAULT_BASE+"/api/remote/register").openConnection();
+        c.setRequestMethod("POST");c.setConnectTimeout(10000);c.setReadTimeout(15000);c.setRequestProperty("Content-Type","application/json");c.setDoOutput(true);
+        JSONObject b=new JSONObject();b.put("deviceId",deviceId);try(OutputStream os=c.getOutputStream()){os.write(b.toString().getBytes("UTF-8"));}
+        int code=c.getResponseCode();String out=read(code>=200&&code<300?c.getInputStream():c.getErrorStream());if(code<200||code>=300)throw new IOException("remote register "+code);return parseObject(out).optString("token","");
+    }
+    private static String pollRemote(String token)throws Exception{
+        HttpURLConnection c=(HttpURLConnection)new URL(DEFAULT_BASE+"/api/remote/poll?token="+java.net.URLEncoder.encode(token,"UTF-8")).openConnection();
+        c.setRequestMethod("GET");c.setConnectTimeout(10000);c.setReadTimeout(15000);
+        int code=c.getResponseCode();String out=read(code>=200&&code<300?c.getInputStream():c.getErrorStream());if(code==401)throw new IOException("remote unauthorized");if(code<200||code>=300)throw new IOException("remote poll "+code);
+        JSONObject o=parseObject(out);JSONObject item=o.optJSONObject("command");return item==null?null:item.optString("text","");
+    }
 
     public static void chat(final String text, final Callback cb){
         RuntimeLogger.log(null,"API_CHAT_REQUEST","text="+text);
