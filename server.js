@@ -56,7 +56,7 @@ function normalizeHeCommand(input){
  if(searchMatch){const q=searchMatch[1].trim();if(q){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"search"});push("instagram_action",{action:"wait",value:"650"});push("instagram_action",{action:"type_text",value:q});push("instagram_action",{action:"wait",value:"300"});push("instagram_action",{action:"submit_search",value:q});return actions;}}
  // Deterministic navigation commands must never depend on an LLM choosing the wrong tool.
  if(/^(תעבור|תעביר|תלך|עבור|לך) (אל )?(מסך )?הבית$/.test(s)||s.includes("תעבור למסך הבית")||s.includes("לעבור למסך הבית")){
-  push("home"); return actions;
+  push("open_app",{package:"com.instagram.android"}); push("instagram_action",{action:"home"}); return actions;
  }
  if(/^(פתח|תפתח|תפתחתה|תפתחה) את? ?אינסטגרם$/.test(s)||s==="instagram"||s==="אינסטגרם"){
   push("open_app",{package:"com.instagram.android"}); return actions;
