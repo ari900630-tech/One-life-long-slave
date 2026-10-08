@@ -254,12 +254,23 @@ public class AgentAccessibilityService extends AccessibilityService {
         else if("type_comment".equals(a))ok=setText(target);
         else if("send".equals(a))ok=instagramClick("send|שלח|שליחה|Send");
         else if("open_result".equals(a)&&!target.isEmpty())ok=instagramClick(target);
+        else if("click".equals(a)||"click_text".equals(a)||"click_button".equals(a)||"click_element".equals(a))ok=instagramClick(target);
+        else if("click_content_description".equals(a)||"click_description".equals(a))ok=clickTextOrDescription(target);
+        else if("long_click".equals(a)||"long_click_text".equals(a))ok=longClickText(target);
+        else if("type".equals(a)||"type_text".equals(a)||"text".equals(a))ok=setText(target);
+        else if("send_text".equals(a))ok=setText(target)&&instagramClick("send|שלח|שליחה|Send|➤|✓");
+        else if("scroll".equals(a))ok=scroll(!"up".equalsIgnoreCase(target));
+        else if("swipe".equals(a)||"swipe_direction".equals(a))ok=swipeDirection(target.isEmpty()?"up":target);
+        else if("back".equals(a))ok=ActionEngine.back();
+        else if("home".equals(a))ok=home();
+        else if("screen_info".equals(a))ok=true;
+        else if("wait".equals(a)||"delay".equals(a)){ waitForInstagramUiChange(tryParseDelay(target)); ok=true; }
         if(ok) waitForInstagramUiChange(350);
         recordDiagnostic("INSTAGRAM_"+a,(ok?"SUCCESS":"FAILURE")+"|target="+target);
         return ok;
     }
 
-    private boolean instagramClick(String alternatives){
+    private long tryParseDelay(String v){ try{return Math.max(100,Math.min(3000,Long.parseLong(v)));}catch(Exception e){return 500;} }\n    private boolean instagramClick(String alternatives){
         List<AccessibilityNodeInfo> nodes=matchingNodes(alternatives);
         for(AccessibilityNodeInfo n:nodes){
             if(n==null)continue;
