@@ -84,8 +84,12 @@ function normalizeHeCommand(input){
  // Deterministic navigation commands must never depend on an LLM choosing the wrong tool.
  if(/(תעבור|עבור|לך|תלך|פתח|תפתח).*?(כפתור החיפוש|מסך החיפוש|חיפוש באינסטגרם|לחיפוש)/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"search"});return actions;}
  if(/(תעבור|עבור|לך|תלך|פתח|תפתח|לחץ|תלחץ).*?(כפתור הלב|הלב|מסך ההתראות|התראות באינסטגרם|ההתראות באינסטגרם|פעילות באינסטגרם)/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"notifications"});return actions;}
- if(/^(גלול|תגלול|גלילה|תעבור למטה|רד למטה|תוריד|תרד).*?(למטה|למטה קצת)?$/.test(s)||s.includes("גלול למטה")||s.includes("גלול קצת למטה")){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"scroll",value:"down"});return actions;}
- if(/^(גלול|תגלול|גלילה|תעבור למעלה|עלה למעלה|תעלה).*?(למעלה|למעלה קצת)?$/.test(s)||s.includes("גלול למעלה")||s.includes("גלול קצת למעלה")){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"scroll",value:"up"});return actions;}
+ if(/(?:^|\s)(?:גלול|תגלול|גלילה|לגלול|תרד|רד|תוריד|תעלה|עלה|תעבור|עבור)\s*(?:קצת\s*)?(?:למטה|למעלה)(?:\s|$)/.test(s)||/(?:למטה|למעלה).*?(?:גלול|תגלול|לגלול)/.test(s)){
+  const up=/(למעלה|עלה|תעלה)/.test(s);
+  push("open_app",{package:"com.instagram.android"});
+  push("instagram_action",{action:"scroll",value:up?"up":"down"});
+  return actions;
+ }
  if(/^(תעבור|תעביר|תלך|עבור|לך) (אל )?(מסך )?הבית$/.test(s)||s.includes("תעבור למסך הבית")||s.includes("לעבור למסך הבית")){
   push("open_app",{package:"com.instagram.android"}); push("instagram_action",{action:"home"}); return actions;
  }
@@ -106,14 +110,30 @@ function normalizeHeCommand(input){
  return null;
 }
 const INSTAGRAM_ACTION_TYPES=new Set(["open_app","instagram_action","click_text","click_content_description","click_role","type_text","send_text","long_click_text","tap","long_click","swipe","swipe_direction","scroll","scroll_repeat","scroll_until_text","click_repeat","screen_info","screenshot","back","like","follow","approve","open_chat_menu","pin","press_send"]);
+function extractInstagramSearchQuery(input){
+ const s=String(input||"").replace(/[!?.,;؛،]/g," ").replace(/\s+/g," ").trim();
+ if(!s)return "";
+ const patterns=[
+  /(?:פתח|תפתח|כנס|תיכנס|להיכנס|היכנס|תעבור|עבור|לך|תלך).*?(?:לאינסטגרם|לנסטגרם|באינסטגרם|באינסטה|לינסטגרם|אינסטגרם|אינסטה).*?(?:וחפש|ותחפש|חפש|תחפש|לחפש|חיפוש)\s+(?:את\s+)?(.+?)(?:\s+באינסטגרם|\s+באינסטה)?$/iu,
+  /(?:חפש|תחפש|לחפש|חיפוש)\s+(?:את\s+)?(.+?)\s+(?:באינסטגרם|באינסטה)$/iu,
+  /(?:חפש|תחפש|לחפש|חיפוש)\s+(?:באינסטגרם|באינסטה)\s+(?:את\s+)?(.+)$/iu
+ ];
+ for(const re of patterns){const m=s.match(re);if(m&&m[1]){const q=m[1].trim();if(q&&!/^(באינסטגרם|באינסטה)$/iu.test(q))return q;}}
+ return "";
+}
 function repairActions(actions,userText){
+ const searchQuery=extractInstagramSearchQuery(userText);
+ if(searchQuery)return [
+  {type:"open_app",package:"com.instagram.android"},
+  {type:"instagram_action",action:"search"},
+  {type:"instagram_action",action:"wait",value:"650"},
+  {type:"instagram_action",action:"type_text",value:searchQuery},
+  {type:"instagram_action",action:"wait",value:"300"},
+  {type:"instagram_action",action:"submit_search",value:searchQuery}
+ ];
  const direct=normalizeHeCommand(userText);
  const candidate=direct || (Array.isArray(actions)?actions:[]);
- return candidate.filter(a=>{
-  if(!a || !INSTAGRAM_ACTION_TYPES.has(String(a.type||"")))return false;
-  if(a.type==="open_app" && String(a.package||"")!=="com.instagram.android")return false;
-  return true;
- });
+ return candidate.filter(a=>{if(!a||!INSTAGRAM_ACTION_TYPES.has(String(a.type||"")))return false;if(a.type==="open_app"&&String(a.package||"")!=="com.instagram.android")return false;return true;});
 }
 function selectModelTools(mode){
  const sets={
