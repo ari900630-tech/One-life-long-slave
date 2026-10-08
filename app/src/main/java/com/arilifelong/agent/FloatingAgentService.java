@@ -21,6 +21,8 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     private WindowManager.LayoutParams chatLp;
     private EditText chatInput;
     private TextView chatMessage;
+    private TextView suggestionsTitle;
+    private LinearLayout suggestionsList;
     private LinearLayout chatConfirm;
     private VoiceEngine voice;
     private static final String CHANNEL="agent_floating";
@@ -178,12 +180,30 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
 
         LinearLayout.LayoutParams messageLp=new LinearLayout.LayoutParams(-1,58);
         chatPanel.addView(chatMessage,messageLp);
+
+        suggestionsTitle=label("אפשר לבקש גם:",13,Color.rgb(90,91,105));
+        suggestionsTitle.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);
+        suggestionsTitle.setPadding(10,4,10,2);
+        suggestionsTitle.setVisibility(View.GONE);
+        chatPanel.addView(suggestionsTitle,new LinearLayout.LayoutParams(-1,32));
+
+        ScrollView suggestionsScroll=new ScrollView(this);
+        suggestionsScroll.setFillViewport(true);
+        suggestionsScroll.setVerticalScrollBarEnabled(false);
+        suggestionsList=new LinearLayout(this);
+        suggestionsList.setOrientation(LinearLayout.VERTICAL);
+        suggestionsList.setPadding(4,0,4,2);
+        suggestionsScroll.addView(suggestionsList,new ScrollView.LayoutParams(-1,-2));
+        suggestionsScroll.setVisibility(View.GONE);
+        LinearLayout.LayoutParams suggestionsLp=new LinearLayout.LayoutParams(-1,170);
+        chatPanel.addView(suggestionsScroll,suggestionsLp);
+
         LinearLayout.LayoutParams confirmLp=new LinearLayout.LayoutParams(-1,48);
         chatPanel.addView(chatConfirm,confirmLp);
 
         int type=Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE;
         int screenWidthDp=(int)(getResources().getDisplayMetrics().widthPixels/getResources().getDisplayMetrics().density);
-        int chatWidthDp=Math.min(380,Math.max(320,screenWidthDp-20));
+        int chatWidthDp=Math.min(420,Math.max(340,screenWidthDp-10));
         int chatWidthPx=(int)(chatWidthDp*getResources().getDisplayMetrics().density);
         chatLp=new WindowManager.LayoutParams(
                 chatWidthPx,WindowManager.LayoutParams.WRAP_CONTENT,type,
@@ -260,6 +280,39 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         chatMessage.setText(plan==null||plan.trim().isEmpty()?"הבנתי את הבקשה. בדוק את הפעולה ואשר לביצוע.":plan);
         chatMessage.setVisibility(View.VISIBLE);
         if(chatConfirm!=null)chatConfirm.setVisibility(View.VISIBLE);
+    }
+
+    private void showSuggestions(JSONArray suggestions){
+        if(suggestionsTitle==null||suggestionsList==null)return;
+        suggestionsList.removeAllViews();
+        if(suggestions==null||suggestions.length()==0){
+            suggestionsTitle.setVisibility(View.GONE);
+            suggestionsList.getParent();
+            if(suggestionsList.getParent() instanceof View)((View)suggestionsList.getParent()).setVisibility(View.GONE);
+            return;
+        }
+        suggestionsTitle.setVisibility(View.VISIBLE);
+        if(suggestionsList.getParent() instanceof View)((View)suggestionsList.getParent()).setVisibility(View.VISIBLE);
+        for(int i=0;i<suggestions.length();i++){
+            String text=suggestions.optString(i,"").trim();
+            if(text.isEmpty())continue;
+            Button b=new Button(this);
+            b.setText(text);
+            b.setTextSize(12);
+            b.setAllCaps(false);
+            b.setTextColor(Color.rgb(55,56,75));
+            b.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);
+            b.setPadding(14,0,14,0);
+            b.setBackground(bg(Color.rgb(245,245,250),18));
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,42);
+            lp.setMargins(3,2,3,2);
+            suggestionsList.addView(b,lp);
+            b.setOnClickListener(v->{
+                String command=((Button)v).getText().toString();
+                if(waitingForConfirmation){pendingActions=null;waitingForConfirmation=false;hidePlan();}
+                onText(command);
+            });
+        }
     }
 
     private void hidePlan(){
@@ -389,6 +442,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 String reply=result.optString("reply","");
                 String summary=understood(actions);
                 String unclear=result.optString("unclear","");
+                showSuggestions(result.optJSONArray("suggestions"));
                 StringBuilder plan=new StringBuilder("הבנתי: ").append(summary).append(".");
                 if(!unclear.trim().isEmpty())plan.append("\nלא הבנתי: ").append(unclear.trim()).append(".");
                 if(!reply.trim().isEmpty() && !reply.equals("בסדר, מבצע את זה עכשיו."))plan.append("\n").append(reply.trim());
