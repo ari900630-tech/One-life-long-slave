@@ -33,7 +33,46 @@ const TOOLS=[{"type":"function","function":{"name":"open_url","description":"ב�
 {"type":"function","function":{"name":"chrome_previous_tab","description":"עבור לכרטיסייה הקודמת ב-Chrome.","parameters":{"type":"object","properties":{},"additionalProperties":true}}},
 {"type":"function","function":{"name":"chrome_clear_search","description":"מחק את הטקסט הקיים בשדה החיפוש או בשורת הכתובת של Chrome.","parameters":{"type":"object","properties":{},"additionalProperties":true}}},
 {"type":"function","function":{"name":"settings_action","description":"בצע פעולה בהגדרות Android לפי המסך הנוכחי. פעולות: open, wifi, bluetooth, sound, volume, display, brightness, battery, apps, notifications, privacy, security, storage, language, date_time, accessibility, permissions, accounts, location, screen_lock, search, click, scroll, back.","parameters":{"type":"object","properties":{"action":{"type":"string"},"value":{"type":"string"}},"required":["action"],"additionalProperties":true}}},{"type":"function","function":{"name":"instagram_action","description":"בצע פעולה באינסטגרם לפי מה שרואים כרגע. פעולות: like, save, share, comment, follow, unfollow, search, profile, home, reels, stories, messages, new_post, next, previous, back, type_comment, send, open_result.","parameters":{"type":"object","properties":{"action":{"type":"string"},"value":{"type":"string"}},"required":["action"],"additionalProperties":true}}},{"type":"function","function":{"name":"uninstall_current_app","description":"הסר את האפליקציה הפתוחה כרגע דרך מסך הבית.","parameters":{"type":"object","properties":{},"additionalProperties":true}}}];
-const MODEL_TOOLS=TOOLS.map(t=>({type:"function",function:{name:t.function.name,description:String(t.function.description||"").slice(0,120),parameters:{type:"object",additionalProperties:true}}}));
+// Keep the real parameter schemas. The previous code stripped them, so the model could call
+// open_app with an empty package (as seen in the Android log for "תעבור למסך הבית").
+const MODEL_TOOLS=TOOLS.map(t=>({
+ type:"function",
+ function:{
+  name:t.function.name,
+  description:String(t.function.description||"").slice(0,220),
+  parameters:t.function.parameters||{type:"object",additionalProperties:true}
+ }
+}));
+function normalizeHeCommand(input){
+ const original=String(input||"").trim();
+ const s=original.toLowerCase().replace(/[!?.,؛،]/g," ").replace(/\\s+/g," ").trim();
+ const actions=[];
+ const push=(type,obj={})=>actions.push({type,...obj});
+ // Deterministic navigation commands must never depend on an LLM choosing the wrong tool.
+ if(/^(תעבור|תעביר|תלך|עבור|לך) (אל )?(מסך )?הבית$/.test(s)||s.includes("תעבור למסך הבית")||s.includes("לעבור למסך הבית")){
+  push("home"); return actions;
+ }
+ if(/^(פתח|תפתח|תפתחתה|תפתחה) את? ?אינסטגרם$/.test(s)||s==="instagram"||s==="אינסטגרם"){
+  push("open_app",{package:"com.instagram.android"}); return actions;
+ }
+ if(/^(סגור|תסגור|תסגור את|לסגור) (את )?אינסטגרם$/.test(s)||s.includes("תסגור את אינסטגרם")){
+  push("back"); return actions;
+ }
+ if(/^(פתח|תפתח|תפתחתה|תפתחה) את? ?האפליקציה$/.test(s)||s.includes("תפתח את האפליקציה")){
+  push("open_app",{package:"com.arilifelong.agent"}); return actions;
+ }
+ if(/^(סגור|תסגור|לסגור) (את )?האפליקציה$/.test(s)||s.includes("תשגור את האפליקציה")||s.includes("תסגור את האפליקציה")){
+  push("close_current_app"); return actions;
+ }
+ if(/^(חזור|תחזור|אחורה|חזרה)$/.test(s)){push("back");return actions;}
+ if(/^(פתח|תפתח) הגדרות$/.test(s)||s.includes("פתח את ההגדרות")){push("settings");return actions;}
+ return null;
+}
+function repairActions(actions,userText){
+ const direct=normalizeHeCommand(userText);
+ if(direct) return direct;
+ return Array.isArray(actions)?actions:[];
+}
 function selectModelTools(mode){
  const sets={
   instagram:["open_app","open_url","instagram_action","click_text","click_content_description","click_role","type_text","send_text","long_click_text","tap","long_click","swipe","swipe_direction","scroll","scroll_repeat","scroll_until_text","click_repeat","screen_info","screenshot","back","home","recents","notifications","quick_settings","like","follow","approve","open_chat_menu","press_send"],
@@ -103,7 +142,7 @@ app.post("/api/chat",async(req,res)=>{
   }
   if(!response || !response.ok)return res.status(response?.status||503).json({error:lastError||"כל מודלי ה-AI אינם זמינים כרגע"});
   const msg=data?.choices?.[0]?.message||{};
-  const actions=callsToActions(msg.tool_calls);
+  const actions=repairActions(callsToActions(msg.tool_calls),lastUser);
   const suggestions=(String(req.body?.mode||"all").toLowerCase()==="instagram")?["עשה לייק","פתח הודעות","עבור לרילס","חפש באינסטגרם","עבור לפוסט הבא","שמור את הפוסט"]:["פתח הגדרות","פתח Chrome","חזור אחורה","עבור למסך הבית","פתח התראות","העלה עוצמת קול"];
   if(actions.length){ const names=actions.map(a=>a.type).filter(Boolean); return res.json({reply:msg.content||"",actions,actionSummary:names,unclear:msg.content||""}); }
   res.json({reply:msg.content||"לא התקבלה תשובה",actions:[]});
