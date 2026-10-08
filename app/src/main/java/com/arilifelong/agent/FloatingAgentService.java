@@ -37,7 +37,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 JSONArray a=new JSONArray(s);
                 if(a.length()==0)return;
                 capabilityAnnounced=true;
-                voice.speak("אני יכול לפתוח, ללחוץ ולגלול. אמור לי: פתח, לחץ או גלול.",FloatingAgentService.this::startVoiceInput);
+                // ללא דיבור אוטומטי
             }catch(Exception e){
                 capabilityAnnounced=false;
                 RuntimeLogger.log(FloatingAgentService.this,"SCREEN_CAPABILITY_ERROR",e.toString());
@@ -182,8 +182,11 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         chatPanel.addView(chatConfirm,confirmLp);
 
         int type=Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE;
+        int screenWidthDp=(int)(getResources().getDisplayMetrics().widthPixels/getResources().getDisplayMetrics().density);
+        int chatWidthDp=Math.min(380,Math.max(320,screenWidthDp-20));
+        int chatWidthPx=(int)(chatWidthDp*getResources().getDisplayMetrics().density);
         chatLp=new WindowManager.LayoutParams(
-                -1,WindowManager.LayoutParams.WRAP_CONTENT,type,
+                chatWidthPx,WindowManager.LayoutParams.WRAP_CONTENT,type,
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                 PixelFormat.TRANSLUCENT);
@@ -274,10 +277,10 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         ActionResult ar=runActions(actions);
         if(ar.failed==0){
             setMode("●  מוכן","בוצע. אפשר לתת פקודה נוספת");
-            voice.speak("בוצע.",FloatingAgentService.this::startVoiceInput);
+            // ללא דיבור אוטומטי
         }else{
             setMode("⚠  חלקי","חלק מהפעולות לא בוצעו");
-            voice.speak("חלק מהפעולות לא הצליחו.",FloatingAgentService.this::startVoiceInput);
+            // ללא דיבור אוטומטי
         }
     }
 
@@ -286,7 +289,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         waitingForConfirmation=false;
         hidePlan();
         setMode("●  מוכן","לא בוצע דבר");
-        voice.speak("בסדר, לא ביצעתי את הפעולה.",FloatingAgentService.this::startVoiceInput);
+        // ללא דיבור אוטומטי
     }
 
     private void showErrorCopy(String error,String command){
@@ -363,8 +366,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             setMode("⚙  סוגר…","סוגר את האפליקציה הנוכחית");
             boolean ok=ActionEngine.closeCurrentApp();
             RuntimeLogger.log(this,"FAST_PATH_RESULT","close_current_app="+ok);
-            if(ok) voice.speak("סגרתי את האפליקציה.",null);
-            else voice.speak("לא הצלחתי לסגור את האפליקציה.",FloatingAgentService.this::startVoiceInput);
+            // ללא דיבור אוטומטי
             return;
         }
         if(waitingForConfirmation){
@@ -379,7 +381,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             @Override public void success(JSONObject result){
                 JSONArray actions=result.optJSONArray("actions");
                 if(actions==null||actions.length()==0){
-                    voice.speak("לא זיהיתי. תגיד פשוט מה לעשות.",FloatingAgentService.this::startVoiceInput);
+                    // ללא דיבור אוטומטי
                     return;
                 }
                 pendingActions=actions;
@@ -398,7 +400,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             @Override public void error(String message){
                 setMode("⚠  לא הצלחתי","הפעולה נכשלה — ממשיך להקשיב");
                 showErrorCopy(message,text);
-                voice.speak("לא הצלחתי. נסה שוב בקצרה.",FloatingAgentService.this::startVoiceInput);
+                // ללא דיבור אוטומטי
             }
         });
     }
@@ -495,7 +497,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 case "long_click_notification": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.openNotificationsAndClick(x.optString("text",x.optString("target")),true);break;}
                 case "click_quick_setting": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.openQuickSettingsAndClick(x.optString("text",x.optString("target")),false);break;}
                 case "long_click_quick_setting": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.openQuickSettingsAndClick(x.optString("text",x.optString("target")),true);break;}
-                case "screen_info": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)voice.speak(s.screenText(),FloatingAgentService.this::startVoiceInput);break;}
+                case "screen_info": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null){ /* מידע נשאר בצ׳אט ללא הקראה */ }break;}
                 case "click_repeat": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.clickRepeat(x.optString("text"),x.optInt("count",3),x.optLong("delay",250));break;}
                 case "scroll_until_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.scrollUntilText(x.optString("text"),!"back".equalsIgnoreCase(x.optString("direction")),x.optInt("max",30),x.optLong("delay",250));break;}
                 case "screenshot": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.screenshot();break;}
