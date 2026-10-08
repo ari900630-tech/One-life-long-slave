@@ -285,6 +285,31 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         }catch(Exception e){ onText(q); }
     }
 
+    private void executeSelectedSuggestion(String command){
+        if(command==null||command.trim().isEmpty())return;
+        final String q=command.trim();
+        RuntimeLogger.log(this,"SUGGESTION_SELECTED","command="+q);
+        setMode("⚙  מבצע…","מבצע את ההצעה שנבחרה");
+        ApiClient.chat(q,new ApiClient.Callback(){
+            @Override public void success(JSONObject result){
+                JSONArray actions=result.optJSONArray("actions");
+                if(actions==null||actions.length()==0){
+                    setMode("⚠  לא הצלחתי","לא נמצאה פעולה לביצוע");
+                    return;
+                }
+                hidePlan();
+                showSuggestions(new JSONArray());
+                ActionResult ar=runActions(actions);
+                setMode(ar.failed==0?"●  מוכן":"⚠  חלקי",ar.failed==0?"בוצע. אפשר לתת פקודה נוספת":"חלק מהפעולות לא בוצעו");
+                RuntimeLogger.log(FloatingAgentService.this,"SUGGESTION_EXECUTED","actions="+actions.length()+" command="+q+" failed="+ar.failed);
+            }
+            @Override public void error(String message){
+                setMode("⚠  לא הצלחתי","ההצעה לא בוצעה");
+                RuntimeLogger.log(FloatingAgentService.this,"SUGGESTION_ERROR",String.valueOf(message));
+            }
+        });
+    }
+
     private void toggleChat(){
         if(chatPanel==null)return;
         boolean show=chatPanel.getVisibility()!=View.VISIBLE;
@@ -364,7 +389,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             b.setOnClickListener(v->{
                 String command=((Button)v).getText().toString();
                 if(waitingForConfirmation){pendingActions=null;waitingForConfirmation=false;hidePlan();}
-                onText(command);
+                executeSelectedSuggestion(command);
             });
         }
     }
@@ -496,16 +521,15 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 String reply=result.optString("reply","");
                 String summary=understood(actions);
                 String unclear=result.optString("unclear","");
-                showSuggestions(buildSuggestions(actions));
+                JSONArray serverSuggestions=result.optJSONArray("suggestions");
+                showSuggestions(serverSuggestions!=null && serverSuggestions.length()>0 ? serverSuggestions : buildSuggestions(actions));
                 StringBuilder plan=new StringBuilder("הבנתי: ").append(summary).append(".");
                 if(!unclear.trim().isEmpty())plan.append("\nלא הבנתי: ").append(unclear.trim()).append(".");
                 if(!reply.trim().isEmpty() && !reply.equals("בסדר, מבצע את זה עכשיו."))plan.append("\n").append(reply.trim());
+                plan.append("\n\nבחר הצעה כדי שאבצע אותה מיד.");
                 showPlan(plan.toString());
-                setMode("⚙  מבצע…","מבצע את הבקשה");
-                ActionResult ar=runActions(actions);
-                hidePlan();
-                setMode(ar.failed==0?"●  מוכן":"⚠  חלקי",ar.failed==0?"בוצע. אפשר לתת פקודה נוספת":"חלק מהפעולות לא בוצעו");
-                RuntimeLogger.log(FloatingAgentService.this,"AUTO_EXECUTION","actions="+actions.length()+" command="+text);
+                setMode("●  בחר פעולה","בחר אחת מההצעות למטה");
+                RuntimeLogger.log(FloatingAgentService.this,"SHOW_SUGGESTIONS","actions="+actions.length()+" command="+text);
             }
             @Override public void error(String message){
                 setMode("⚠  לא הצלחתי","הפעולה נכשלה — ממשיך להקשיב");
