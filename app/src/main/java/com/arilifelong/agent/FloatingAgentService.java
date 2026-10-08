@@ -6,6 +6,8 @@ import android.graphics.*;
 import android.graphics.drawable.GradientDrawable;
 import android.os.*;
 import android.provider.Settings;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.*;
 import android.widget.*;
 import org.json.JSONArray;
@@ -24,6 +26,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     private TextView chatMessage;
     private TextView suggestionsTitle;
     private LinearLayout suggestionsList;
+    private ScrollView suggestionsScroll;
     private LinearLayout chatConfirm;
     private VoiceEngine voice;
     private static final String CHANNEL="agent_floating";
@@ -135,6 +138,11 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         send.setMinHeight(42);
         send.setOnClickListener(v->sendChatText());
         chatInput.setOnEditorActionListener((v,id,event)->{sendChatText();return true;});
+        chatInput.addTextChangedListener(new TextWatcher(){
+            @Override public void beforeTextChanged(CharSequence s,int start,int count,int after){}
+            @Override public void onTextChanged(CharSequence s,int start,int before,int count){ updateLiveSuggestions(s==null?"":s.toString()); }
+            @Override public void afterTextChanged(Editable e){}
+        });
 
         chatMessage=label("",14,Color.rgb(55,56,70));
         chatMessage.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);
@@ -177,6 +185,8 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         topRow.addView(chatInput,new LinearLayout.LayoutParams(0,48,1));
         topRow.addView(send,new LinearLayout.LayoutParams(68,44));
         topRow.addView(close,new LinearLayout.LayoutParams(42,48));
+        chatPanel.addView(suggestionsTitle,new LinearLayout.LayoutParams(-1,32));
+        chatPanel.addView(suggestionsScroll,new LinearLayout.LayoutParams(-1,170));
         chatPanel.addView(topRow,new LinearLayout.LayoutParams(-1,48));
 
         LinearLayout.LayoutParams messageLp=new LinearLayout.LayoutParams(-1,58);
@@ -255,6 +265,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         chatMessage=null;
         suggestionsList=null;
         suggestionsTitle=null;
+        suggestionsScroll=null;
         chatConfirm=null;
         stopSelf();
     }
@@ -359,6 +370,32 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 : new String[]{"פתח את ההגדרות","פתח את Chrome","חזור אחורה","עבור למסך הבית","פתח את ההתראות","העלה את עוצמת הקול","גלול למטה","פתח את המצלמה"};
         for(String s:list)a.put(s);
         return a;
+    }
+
+    private void updateLiveSuggestions(String input){
+        if(suggestionsTitle==null||suggestionsList==null||suggestionsScroll==null)return;
+        String q=input==null?"":input.trim().toLowerCase(java.util.Locale.ROOT);
+        if(q.isEmpty()){ suggestionsList.removeAllViews(); suggestionsTitle.setVisibility(View.GONE); suggestionsScroll.setVisibility(View.GONE); return; }
+        java.util.ArrayList<String> all=new java.util.ArrayList<>();
+        if(q.contains("אינסט")||q.contains("ינסט")||q.contains("instagram")){
+            java.util.Collections.addAll(all,"פתח את אינסטגרם","פתח את ההודעות באינסטגרם","עבור לרילס באינסטגרם","עבור לפוסט הבא","עשה לייק לפוסט הזה","שמור את הפוסט הזה","שתף את הפוסט הזה","עבור לפרופיל","חפש באינסטגרם","עקוב אחרי הפרופיל הזה","הפסק לעקוב מהפרופיל הזה","פתח את הסטורי","חזור באינסטגרם","עבור לדף הבית באינסטגרם","כתוב תגובה לפוסט הזה","פתח את הפוסט הבא ושמור אותו","עשה לייק לפוסט ועבור לפוסט הבא","פתח את ההודעות ושלח הודעה","חפש את המשתמש הזה באינסטגרם","פתח את תוצאות החיפוש באינסטגרם");
+        } else if(q.contains("פתח")||q.contains("פת")||q.contains("open")){
+            java.util.Collections.addAll(all,"פתח את אינסטגרם","פתח את Chrome","פתח את ההגדרות","פתח את המצלמה","פתח את ההודעות","פתח את ההתראות","פתח את חנות Play","פתח את מסך הבית","פתח את האפליקציה האחרונה","פתח את ההגדרות של האפליקציה הנוכחית","פתח את מנהל האפליקציות","פתח את אנשי הקשר","פתח את הטלפון","פתח את המפות","פתח את חיפוש Google","פתח את חלון ההתראות","פתח את ההגדרות המהירות");
+        } else if(q.contains("חפש")||q.contains("חיפוש")||q.contains("search")){
+            java.util.Collections.addAll(all,"חפש באינסטגרם","חפש ב-Google","חפש ב-Chrome","פתח את תוצאות החיפוש","נקה את החיפוש","חפש את המשתמש הזה באינסטגרם","חפש את האפליקציה הזו בחנות Play","חפש את האתר הזה");
+        } else {
+            java.util.Collections.addAll(all,"פתח את אינסטגרם","פתח את Chrome","פתח את ההגדרות","עבור למסך הבית","חזור אחורה","גלול למטה","גלול למעלה","פתח את ההתראות","פתח את המצלמה","העלה את עוצמת הקול","הורד את עוצמת הקול","צלם מסך","פתח את ההודעות","פתח את חנות Play","עבור לאפליקציה האחרונה","סגור את האפליקציה הנוכחית","פתח את המפות","פתח את אנשי הקשר","פתח את הטלפון","הפעל מצב טיסה");
+        }
+        final String[] tokens=q.split("\\s+");
+        java.util.Collections.sort(all,(a,b)->{
+            int sa=0,sb=0; String la=a.toLowerCase(java.util.Locale.ROOT),lb=b.toLowerCase(java.util.Locale.ROOT);
+            for(String t:tokens){ if(t.length()<2)continue; if(la.contains(t))sa+=10; if(lb.contains(t))sb+=10; }
+            return Integer.compare(sb,sa);
+        });
+        JSONArray result=new JSONArray();
+        for(String s:all)result.put(s);
+        showSuggestions(result);
+        suggestionsTitle.setText("הצעות בזמן אמת • "+all.size());
     }
 
     private void showSuggestions(JSONArray suggestions){
