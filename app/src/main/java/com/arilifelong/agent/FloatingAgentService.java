@@ -186,20 +186,13 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         topRow.addView(chatInput,new LinearLayout.LayoutParams(0,48,1));
         topRow.addView(send,new LinearLayout.LayoutParams(68,44));
         topRow.addView(close,new LinearLayout.LayoutParams(42,48));
-        chatPanel.addView(suggestionsTitle,new LinearLayout.LayoutParams(-1,32));
-        chatPanel.addView(suggestionsScroll,new LinearLayout.LayoutParams(-1,170));
-        chatPanel.addView(topRow,new LinearLayout.LayoutParams(-1,48));
-
-        LinearLayout.LayoutParams messageLp=new LinearLayout.LayoutParams(-1,58);
-        chatPanel.addView(chatMessage,messageLp);
-
+        // Build the suggestions views before adding them to the panel.
         suggestionsTitle=label("אפשר לבקש גם:",13,Color.rgb(90,91,105));
         suggestionsTitle.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);
         suggestionsTitle.setPadding(10,4,10,2);
         suggestionsTitle.setVisibility(View.GONE);
-        chatPanel.addView(suggestionsTitle,new LinearLayout.LayoutParams(-1,32));
 
-        ScrollView suggestionsScroll=new ScrollView(this);
+        suggestionsScroll=new ScrollView(this);
         suggestionsScroll.setFillViewport(true);
         suggestionsScroll.setVerticalScrollBarEnabled(false);
         suggestionsList=new LinearLayout(this);
@@ -207,8 +200,14 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         suggestionsList.setPadding(4,0,4,2);
         suggestionsScroll.addView(suggestionsList,new ScrollView.LayoutParams(-1,-2));
         suggestionsScroll.setVisibility(View.GONE);
-        LinearLayout.LayoutParams suggestionsLp=new LinearLayout.LayoutParams(-1,170);
-        chatPanel.addView(suggestionsScroll,suggestionsLp);
+
+        // Suggestions stay above the input row and are added exactly once.
+        chatPanel.addView(suggestionsTitle,new LinearLayout.LayoutParams(-1,32));
+        chatPanel.addView(suggestionsScroll,new LinearLayout.LayoutParams(-1,170));
+        chatPanel.addView(topRow,new LinearLayout.LayoutParams(-1,48));
+
+        LinearLayout.LayoutParams messageLp=new LinearLayout.LayoutParams(-1,58);
+        chatPanel.addView(chatMessage,messageLp);
 
         LinearLayout.LayoutParams confirmLp=new LinearLayout.LayoutParams(-1,48);
         chatPanel.addView(chatConfirm,confirmLp);
