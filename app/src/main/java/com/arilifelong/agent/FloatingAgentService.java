@@ -135,6 +135,9 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         close.setGravity(Gravity.CENTER);
         close.setOnClickListener(v->stopSelf());
 
+        TextView dragHandle=label("⋮⋮",18,Color.rgb(145,146,158));
+        dragHandle.setGravity(Gravity.CENTER);
+        chatPanel.addView(dragHandle,new LinearLayout.LayoutParams(28,48));
         chatPanel.addView(chatInput,new LinearLayout.LayoutParams(0,48,1));
         chatPanel.addView(send,new LinearLayout.LayoutParams(68,44));
         chatPanel.addView(close,new LinearLayout.LayoutParams(42,48));
@@ -151,7 +154,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         final float[] down=new float[2];
         final int[] origin=new int[2];
         final boolean[] moved=new boolean[1];
-        chatPanel.setOnTouchListener((v,e)->{
+        dragHandle.setOnTouchListener((v,e)->{
             switch(e.getActionMasked()){
                 case MotionEvent.ACTION_DOWN:
                     down[0]=e.getRawX(); down[1]=e.getRawY();
@@ -159,12 +162,21 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                     return true;
                 case MotionEvent.ACTION_MOVE:
                     float dx=e.getRawX()-down[0], dy=e.getRawY()-down[1];
-                    if(Math.abs(dx)>8||Math.abs(dy)>8)moved[0]=true;
+                    if(Math.abs(dx)>4||Math.abs(dy)>4)moved[0]=true;
                     if(moved[0]){
                         chatLp.gravity=Gravity.TOP|Gravity.LEFT;
                         chatLp.x=Math.max(0,origin[0]+(int)dx);
                         chatLp.y=Math.max(8,origin[1]+(int)dy);
                         try{wm.updateViewLayout(chatPanel,chatLp);}catch(Exception ignored){}
+                    }
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    return true;
+            }
+            return false;
+        });
+
+        try{wm.updateViewLayout(chatPanel,chatLp);}catch(Exception ignored){}
                     }
                     return true;
                 case MotionEvent.ACTION_UP:
