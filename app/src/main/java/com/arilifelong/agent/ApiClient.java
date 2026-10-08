@@ -85,7 +85,7 @@ public final class ApiClient {
                 JSONObject m=new JSONObject(); m.put("role","user"); m.put("content",text+context); messages.put(m);
                 synchronized(HISTORY_LOCK){
                     history.put(new JSONObject().put("role","user").put("content",text+context));
-                    while(history.length()>12)history.remove(0);
+                    while(history.length()>20)history.remove(0);
                 }
                 JSONObject body=new JSONObject(); body.put("messages",messages);
                 body.put("mode","instagram");
