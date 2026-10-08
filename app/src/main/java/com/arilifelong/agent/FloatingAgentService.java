@@ -176,15 +176,6 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             return false;
         });
 
-        try{wm.updateViewLayout(chatPanel,chatLp);}catch(Exception ignored){}
-                    }
-                    return true;
-                case MotionEvent.ACTION_UP:
-                    return moved[0];
-            }
-            return false;
-        });
-
         try{
             wm.addView(chatPanel,chatLp);
             chatPanel.setVisibility(View.VISIBLE);
