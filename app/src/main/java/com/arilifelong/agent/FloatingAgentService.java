@@ -184,11 +184,40 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         chatPanel=new LinearLayout(this);
         chatPanel.setOrientation(LinearLayout.VERTICAL);
         chatPanel.setGravity(Gravity.CENTER_VERTICAL);
-        chatPanel.setPadding(8,7,8,7);
-        GradientDrawable shell=bg(Color.WHITE,30);
+        chatPanel.setPadding(14,12,14,12);
+        chatPanel.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        GradientDrawable shell=bg(Color.rgb(247,248,252),30);
         shell.setStroke(1,Color.rgb(225,226,235));
         chatPanel.setBackground(shell);
         chatPanel.setElevation(18f);
+
+        LinearLayout header=new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        TextView title=label("הסוכן שלי",20,Color.rgb(23,24,39));
+        title.setTextSize(20);
+        title.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);
+        TextView subtitle=label("עוזר אישי שמבצע פעולות בטלפון",11,Color.rgb(119,121,138));
+        LinearLayout titleBox=new LinearLayout(this);
+        titleBox.setOrientation(LinearLayout.VERTICAL);
+        titleBox.addView(title,new LinearLayout.LayoutParams(-1,30));
+        titleBox.addView(subtitle,new LinearLayout.LayoutParams(-1,22));
+        header.addView(titleBox,new LinearLayout.LayoutParams(0,56,1));
+        TextView logo=label("✦",22,Color.WHITE);
+        logo.setGravity(Gravity.CENTER);
+        logo.setBackground(bg(Color.rgb(103,87,217),18));
+        header.addView(logo,new LinearLayout.LayoutParams(52,52));
+
+        LinearLayout statusCard=new LinearLayout(this);
+        statusCard.setOrientation(LinearLayout.VERTICAL);
+        statusCard.setPadding(12,8,12,8);
+        statusCard.setBackground(bg(Color.WHITE,18));
+        TextView statusCaption=label("מצב הסוכן",11,Color.rgb(122,124,140));
+        status=label("מוכן להקשיב",15,Color.rgb(32,33,51));
+        status.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);
+        statusCard.addView(statusCaption,new LinearLayout.LayoutParams(-1,20));
+        statusCard.addView(status,new LinearLayout.LayoutParams(-1,28));
 
         // Voice-only interface: no text input or send button.
         chatMessage=label("",14,Color.rgb(55,56,70));
@@ -253,7 +282,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         LinearLayout topRow=new LinearLayout(this);
         topRow.setOrientation(LinearLayout.HORIZONTAL);
         topRow.setGravity(Gravity.CENTER_VERTICAL);
-        topRow.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        topRow.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         topRow.addView(dragHandle,new LinearLayout.LayoutParams(26,48));
         topRow.addView(mic,new LinearLayout.LayoutParams(0,44,1));
         topRow.addView(historyButton,new LinearLayout.LayoutParams(58,44));
@@ -283,7 +312,9 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         suggestionsScroll.addView(suggestionsList,new ScrollView.LayoutParams(-1,-2));
         suggestionsScroll.setVisibility(View.GONE);
 
-        // Suggestions stay above the input row and are added exactly once.
+        // Same visual hierarchy as the main app: header, status card, then controls.
+        chatPanel.addView(header,new LinearLayout.LayoutParams(-1,58));
+        chatPanel.addView(statusCard,new LinearLayout.LayoutParams(-1,56));
         chatPanel.addView(suggestionsTitle,new LinearLayout.LayoutParams(-1,32));
         chatPanel.addView(suggestionsScroll,new LinearLayout.LayoutParams(-1,170));
         chatPanel.addView(topRow,new LinearLayout.LayoutParams(-1,48));
