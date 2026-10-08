@@ -685,9 +685,12 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                 }
                 JSONArray actions=result.optJSONArray("actions");
                 if(actions==null||actions.length()==0){
-                    String unclearText="לא הצלחתי להבין מה לבצע. תסביר לי קצת אחרת.";
+                    String unclearText=result.optString("reply","").trim();
+                    if(unclearText.isEmpty())unclearText="לא הצלחתי להבין מה לבצע. תסביר לי קצת אחרת.";
                     addConversation("הסוכן",unclearText);
                     if(voice!=null)voice.speak(unclearText);
+                    setMode("●  מוכן",unclearText);
+                    RuntimeLogger.log(FloatingAgentService.this,"COMMAND_NEEDS_CLARIFICATION","text="+text+" reply="+unclearText);
                     return;
                 }
                 pendingActions=null;
