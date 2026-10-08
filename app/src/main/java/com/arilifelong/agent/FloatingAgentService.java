@@ -384,7 +384,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                 StringBuilder plan=new StringBuilder("הבנתי: ").append(summary).append(".");
                 if(!unclear.trim().isEmpty())plan.append("\nלא הבנתי: ").append(unclear.trim()).append(".");
                 if(!reply.trim().isEmpty() && !reply.equals("בסדר, מבצע את זה עכשיו."))plan.append("\n").append(reply.trim());
-                plan.append("\n\nלחץ על \\"אישור\\" כדי שאבצע. \\"תיקון\\" כדי לתקן.");
+                plan.append("\n\nלחץ על אישור כדי שאבצע. תיקון כדי לתקן.");
                 showPlan(plan.toString());
                 setMode("✓  ממתין לאישור","בדוק את מה שהבנתי לפני ביצוע");
                 RuntimeLogger.log(FloatingAgentService.this,"WAITING_CONFIRMATION","actions="+actions.length()+" command="+text);
