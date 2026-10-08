@@ -55,9 +55,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         createChannel();
         startForeground(NOTIFICATION_ID, notification());
         voice=new VoiceEngine(getApplicationContext(),this);
-        showBar();
-        RuntimeLogger.log(this,"APP","initial_greeting_requested");
-        voice.speak("שלום. פשוט תגיד לי מה לעשות, למשל: פתח ווטסאפ או גלול למטה.", FloatingAgentService.this::startVoiceInput);
+        createChatPanel();
         try{ registerReceiver(screenReceiver,new IntentFilter("com.arilifelong.agent.SCREEN_CHANGED")); }catch(Exception ignored){}
     }
 
@@ -97,131 +95,88 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     }
 
     private void showBar() {
-        if(!Settings.canDrawOverlays(this))return;
-        wm=(WindowManager)getSystemService(WINDOW_SERVICE);
-
-        LinearLayout root=new LinearLayout(this);
-        root.setOrientation(LinearLayout.HORIZONTAL);
-        root.setGravity(Gravity.CENTER_VERTICAL);
-        root.setPadding(14,8,10,8);
-        GradientDrawable shell=bg(Color.WHITE,34);
-        shell.setStroke(1,Color.rgb(232,234,242));
-        root.setBackground(shell);
-        root.setElevation(16f);
-
-        TextView icon=label("✦",22,Color.WHITE);
-        icon.setGravity(Gravity.CENTER);
-        icon.setBackground(bg(Color.rgb(103,87,217),28));
-        root.addView(icon,new LinearLayout.LayoutParams(46,46));
-
-        LinearLayout info=new LinearLayout(this);
-        info.setOrientation(LinearLayout.VERTICAL);
-        info.setGravity(Gravity.CENTER_VERTICAL);
-        info.setPadding(12,0,8,0);
-        TextView title=label("הסוכן שלי",15,Color.rgb(28,29,43));
-        title.setTypeface(null,1);
-        status=label("מוכן להקשיב",11,Color.rgb(112,114,128));
-        info.addView(title,new LinearLayout.LayoutParams(-1,24));
-        info.addView(status,new LinearLayout.LayoutParams(-1,20));
-        root.addView(info,new LinearLayout.LayoutParams(0,46,1));
-
-        talk=new Button(this);
-        talk.setText("🎙  דבר איתי");
-        talk.setTextSize(13);
-        talk.setTextColor(Color.WHITE);
-        talk.setAllCaps(false);
-        talk.setPadding(16,0,16,0);
-        talk.setBackground(bg(Color.rgb(103,87,217),26));
-        talk.setMinHeight(46);
-        talk.setOnClickListener(v->startVoiceInput());
-        root.addView(talk,new LinearLayout.LayoutParams(112,46));
-
-        chatToggle=new Button(this);
-        chatToggle.setText("צ׳אט");
-        chatToggle.setTextSize(12);
-        chatToggle.setTextColor(Color.rgb(45,46,62));
-        chatToggle.setAllCaps(false);
-        chatToggle.setBackground(bg(Color.rgb(242,243,248),24));
-        chatToggle.setMinHeight(46);
-        chatToggle.setOnClickListener(v->toggleChat());
-        root.addView(chatToggle,new LinearLayout.LayoutParams(72,46));
-
-        TextView close=label("×",25,Color.rgb(120,121,135));
-        close.setGravity(Gravity.CENTER);
-        close.setOnClickListener(v->stopSelf());
-        root.addView(close,new LinearLayout.LayoutParams(34,46));
-
-        int type=Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE;
-        WindowManager.LayoutParams lp=new WindowManager.LayoutParams(
-                -1,WindowManager.LayoutParams.WRAP_CONTENT,type,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                PixelFormat.TRANSLUCENT);
-        lp.gravity=Gravity.TOP|Gravity.LEFT;
-        lp.x=0;
-        lp.y=72;
-        overlayLp=lp;
-
-        View.OnTouchListener dragListener=(v,e)->{
-            switch(e.getActionMasked()){
-                case MotionEvent.ACTION_DOWN:
-                    downX=e.getRawX(); downY=e.getRawY();
-                    startX=overlayLp.x; startY=overlayLp.y; dragging=false; return true;
-                case MotionEvent.ACTION_MOVE:
-                    float dx=e.getRawX()-downX, dy=e.getRawY()-downY;
-                    if(Math.abs(dx)>8||Math.abs(dy)>8)dragging=true;
-                    if(dragging){
-                        overlayLp.x=startX+(int)dx;
-                        overlayLp.y=Math.max(8,startY+(int)dy);
-                        try{wm.updateViewLayout(bar,overlayLp);}catch(Exception ignored){}
-                    }
-                    return true;
-                case MotionEvent.ACTION_UP:return true;
-            }
-            return false;
-        };
-        icon.setOnTouchListener(dragListener);
-        info.setOnTouchListener(dragListener);
-        wm.addView(root,lp);
-        bar=root;
+        // הוסר: הממשק היחיד של השירות הוא חלון הצ׳אט הצף.
         createChatPanel();
     }
 
     private void createChatPanel(){
+        if(wm==null)wm=(WindowManager)getSystemService(WINDOW_SERVICE);
         if(wm==null||!Settings.canDrawOverlays(this))return;
+
         chatPanel=new LinearLayout(this);
         chatPanel.setOrientation(LinearLayout.HORIZONTAL);
         chatPanel.setGravity(Gravity.CENTER_VERTICAL);
-        chatPanel.setPadding(10,7,8,7);
-        GradientDrawable shell=bg(Color.WHITE,28);
-        shell.setStroke(1,Color.rgb(232,234,242));
+        chatPanel.setPadding(8,7,8,7);
+        GradientDrawable shell=bg(Color.WHITE,30);
+        shell.setStroke(1,Color.rgb(225,226,235));
         chatPanel.setBackground(shell);
-        chatPanel.setElevation(16f);
+        chatPanel.setElevation(18f);
+
         chatInput=new EditText(this);
         chatInput.setSingleLine(true);
-        TextView ig=label("Instagram",12,Color.rgb(103,87,217));
-        ig.setTypeface(null,1);
-        chatInput.setHint("מה לעשות באינסטגרם?");
-        chatInput.setTextSize(14);
+        chatInput.setHint("כתוב מה לעשות...");
+        chatInput.setTextSize(15);
         chatInput.setTextColor(Color.rgb(28,29,43));
-        chatInput.setHintTextColor(Color.rgb(140,142,154));
+        chatInput.setHintTextColor(Color.rgb(145,146,158));
         chatInput.setGravity(Gravity.CENTER_VERTICAL|Gravity.RIGHT);
+        chatInput.setPadding(10,0,10,0);
+
         Button send=new Button(this);
-        send.setText("שלח"); send.setTextSize(12); send.setTextColor(Color.WHITE); send.setAllCaps(false);
-        send.setBackground(bg(Color.rgb(103,87,217),22)); send.setMinHeight(42);
+        send.setText("שלח");
+        send.setTextSize(12);
+        send.setTextColor(Color.WHITE);
+        send.setAllCaps(false);
+        send.setBackground(bg(Color.rgb(103,87,217),22));
+        send.setMinHeight(42);
         send.setOnClickListener(v->sendChatText());
         chatInput.setOnEditorActionListener((v,id,event)->{sendChatText();return true;});
-        chatPanel.addView(ig,new LinearLayout.LayoutParams(70,46));
-        chatPanel.addView(chatInput,new LinearLayout.LayoutParams(0,46,1));
-        chatPanel.addView(send,new LinearLayout.LayoutParams(70,46));
-        WindowManager.LayoutParams cp=new WindowManager.LayoutParams(
-                -1,WindowManager.LayoutParams.WRAP_CONTENT,
-                Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE,
+
+        TextView close=label("×",27,Color.rgb(80,81,95));
+        close.setGravity(Gravity.CENTER);
+        close.setOnClickListener(v->stopSelf());
+
+        chatPanel.addView(chatInput,new LinearLayout.LayoutParams(0,48,1));
+        chatPanel.addView(send,new LinearLayout.LayoutParams(68,44));
+        chatPanel.addView(close,new LinearLayout.LayoutParams(42,48));
+
+        int type=Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE;
+        chatLp=new WindowManager.LayoutParams(
+                -1,WindowManager.LayoutParams.WRAP_CONTENT,type,
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT);
-        cp.gravity=Gravity.BOTTOM|Gravity.LEFT; cp.x=0; cp.y=12;
-        chatLp=cp;
-        try{wm.addView(chatPanel,cp);}catch(Exception e){RuntimeLogger.log(this,"CHAT_ERROR","add_panel="+e);}
-        chatPanel.setVisibility(View.VISIBLE);
+        chatLp.gravity=Gravity.BOTTOM|Gravity.LEFT;
+        chatLp.x=0;
+        chatLp.y=12;
+
+        final float[] down=new float[2];
+        final int[] origin=new int[2];
+        final boolean[] moved=new boolean[1];
+        chatPanel.setOnTouchListener((v,e)->{
+            switch(e.getActionMasked()){
+                case MotionEvent.ACTION_DOWN:
+                    down[0]=e.getRawX(); down[1]=e.getRawY();
+                    origin[0]=chatLp.x; origin[1]=chatLp.y; moved[0]=false;
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    float dx=e.getRawX()-down[0], dy=e.getRawY()-down[1];
+                    if(Math.abs(dx)>8||Math.abs(dy)>8)moved[0]=true;
+                    if(moved[0]){
+                        chatLp.gravity=Gravity.TOP|Gravity.LEFT;
+                        chatLp.x=Math.max(0,origin[0]+(int)dx);
+                        chatLp.y=Math.max(8,origin[1]+(int)dy);
+                        try{wm.updateViewLayout(chatPanel,chatLp);}catch(Exception ignored){}
+                    }
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    return moved[0];
+            }
+            return false;
+        });
+
+        try{
+            wm.addView(chatPanel,chatLp);
+            chatPanel.setVisibility(View.VISIBLE);
+        }catch(Exception e){RuntimeLogger.log(this,"CHAT_ERROR","add_panel="+e);}
     }
 
     private void toggleChat(){
