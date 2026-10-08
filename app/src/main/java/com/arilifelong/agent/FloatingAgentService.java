@@ -20,6 +20,8 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
     private LinearLayout chatPanel;
     private WindowManager.LayoutParams chatLp;
     private EditText chatInput;
+    private TextView chatMessage;
+    private LinearLayout chatConfirm;
     private VoiceEngine voice;
     private static final String CHANNEL="agent_floating";
     private static final int NOTIFICATION_ID=7;
@@ -131,6 +133,33 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         send.setOnClickListener(v->sendChatText());
         chatInput.setOnEditorActionListener((v,id,event)->{sendChatText();return true;});
 
+        chatMessage=label("",14,Color.rgb(55,56,70));
+        chatMessage.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);
+        chatMessage.setPadding(12,4,12,4);
+        chatMessage.setVisibility(View.GONE);
+
+        chatConfirm=new LinearLayout(this);
+        chatConfirm.setOrientation(LinearLayout.HORIZONTAL);
+        chatConfirm.setGravity(Gravity.CENTER_VERTICAL);
+        chatConfirm.setVisibility(View.GONE);
+
+        Button approve=new Button(this);
+        approve.setText("אישור");
+        approve.setTextSize(12);
+        approve.setAllCaps(false);
+        approve.setTextColor(Color.WHITE);
+        approve.setBackground(bg(Color.rgb(54,145,91),22));
+        approve.setOnClickListener(v->confirmPendingActions());
+
+        Button correct=new Button(this);
+        correct.setText("תיקון");
+        correct.setTextSize(12);
+        correct.setAllCaps(false);
+        correct.setOnClickListener(v->cancelPendingConfirmation());
+
+        chatConfirm.addView(approve,new LinearLayout.LayoutParams(76,42));
+        chatConfirm.addView(correct,new LinearLayout.LayoutParams(76,42));
+
         TextView close=label("×",27,Color.rgb(80,81,95));
         close.setGravity(Gravity.CENTER);
         close.setOnClickListener(v->stopSelf());
@@ -141,6 +170,11 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         chatPanel.addView(chatInput,new LinearLayout.LayoutParams(0,48,1));
         chatPanel.addView(send,new LinearLayout.LayoutParams(68,44));
         chatPanel.addView(close,new LinearLayout.LayoutParams(42,48));
+
+        LinearLayout.LayoutParams messageLp=new LinearLayout.LayoutParams(-1,58);
+        chatPanel.addView(chatMessage,messageLp);
+        LinearLayout.LayoutParams confirmLp=new LinearLayout.LayoutParams(-1,48);
+        chatPanel.addView(chatConfirm,confirmLp);
 
         int type=Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE;
         chatLp=new WindowManager.LayoutParams(
@@ -210,6 +244,43 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         chatInput.setText("");
         RuntimeLogger.log(this,"CHAT_COMMAND","text="+text);
         onText(text);
+    }
+
+    private void showPlan(String plan){
+        if(chatMessage==null)return;
+        chatMessage.setText(plan==null||plan.trim().isEmpty()?"הבנתי את הבקשה. בדוק את הפעולה ואשר לביצוע.":plan);
+        chatMessage.setVisibility(View.VISIBLE);
+        if(chatConfirm!=null)chatConfirm.setVisibility(View.VISIBLE);
+    }
+
+    private void hidePlan(){
+        if(chatMessage!=null)chatMessage.setVisibility(View.GONE);
+        if(chatConfirm!=null)chatConfirm.setVisibility(View.GONE);
+    }
+
+    private void confirmPendingActions(){
+        if(!waitingForConfirmation||pendingActions==null)return;
+        JSONArray actions=pendingActions;
+        pendingActions=null;
+        waitingForConfirmation=false;
+        hidePlan();
+        setMode("⚙  מבצע…","מבצע רק לאחר האישור שלך");
+        ActionResult ar=runActions(actions);
+        if(ar.failed==0){
+            setMode("●  מוכן","בוצע. אפשר לתת פקודה נוספת");
+            voice.speak("בוצע.",FloatingAgentService.this::startVoiceInput);
+        }else{
+            setMode("⚠  חלקי","חלק מהפעולות לא בוצעו");
+            voice.speak("חלק מהפעולות לא הצליחו.",FloatingAgentService.this::startVoiceInput);
+        }
+    }
+
+    private void cancelPendingConfirmation(){
+        pendingActions=null;
+        waitingForConfirmation=false;
+        hidePlan();
+        setMode("●  מוכן","לא בוצע דבר");
+        voice.speak("בסדר, לא ביצעתי את הפעולה.",FloatingAgentService.this::startVoiceInput);
     }
 
     private void showErrorCopy(String error,String command){
@@ -302,12 +373,14 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             else voice.speak("לא הצלחתי לפתוח את אינסטגרם. בדוק שהאפליקציה מותקנת.",FloatingAgentService.this::startVoiceInput);
             return;
         }
-        // ביצוע אוטומטי: אין שלב אישור. הפקודה שהמשתמש אמר מבוצעת מיד.
-        if(waitingForConfirmation&&pendingActions!=null){
+        if(waitingForConfirmation){
+            if(isYes(text)){ confirmPendingActions(); return; }
+            if(isNo(text)){ cancelPendingConfirmation(); return; }
             pendingActions=null;
             waitingForConfirmation=false;
+            hidePlan();
         }
-        setMode("⚙  מבצע…","מבצע את הבקשה שלך");
+        setMode("⚙  מנתח…","בודק מה הבנתי ומה חסר");
         ApiClient.chat(text,new ApiClient.Callback(){
             @Override public void success(JSONObject result){
                 JSONArray actions=result.optJSONArray("actions");
@@ -316,16 +389,17 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
                     return;
                 }
                 pendingActions=actions;
-                waitingForConfirmation=false;
-                RuntimeLogger.log(FloatingAgentService.this,"AUTO_EXECUTE","actions="+actions.length()+" command="+text);
-                ActionResult ar=runActions(actions);
-                if(ar.failed==0){
-                    setMode("●  מוכן","בוצע. תגיד מה עכשיו");
-                    voice.speak("בוצע.",FloatingAgentService.this::startVoiceInput);
-                }else{
-                    setMode("⚠  נסה שוב","תגיד את הפעולה הבאה");
-                    voice.speak("בוצע חלקית. תגיד את הפעולה הבאה.",FloatingAgentService.this::startVoiceInput);
-                }
+                waitingForConfirmation=true;
+                String reply=result.optString("reply","");
+                String summary=understood(actions);
+                String unclear=result.optString("unclear","");
+                StringBuilder plan=new StringBuilder("הבנתי: ").append(summary).append(".");
+                if(!unclear.trim().isEmpty())plan.append("\nלא הבנתי: ").append(unclear.trim()).append(".");
+                if(!reply.trim().isEmpty() && !reply.equals("בסדר, מבצע את זה עכשיו."))plan.append("\n").append(reply.trim());
+                plan.append("\n\nלחץ על "אישור" כדי שאבצע. "תיקון" כדי לתקן.");
+                showPlan(plan.toString());
+                setMode("✓  ממתין לאישור","בדוק את מה שהבנתי לפני ביצוע");
+                RuntimeLogger.log(FloatingAgentService.this,"WAITING_CONFIRMATION","actions="+actions.length()+" command="+text);
             }
             @Override public void error(String message){
                 setMode("⚠  לא הצלחתי","הפעולה נכשלה — ממשיך להקשיב");
