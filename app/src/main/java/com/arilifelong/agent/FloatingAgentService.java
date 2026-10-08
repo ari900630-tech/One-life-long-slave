@@ -419,6 +419,34 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
             switch(t){
                 case "open_url": if(!ActionEngine.openUrl(this,x.optString("url")))throw new IllegalStateException("open_url failed");break;
                 case "open_app": if(!ActionEngine.openApp(this,x.optString("package")))throw new IllegalStateException("open_app failed: "+x.optString("package"));break;
+                case "instagram_action": {
+                    AgentAccessibilityService s=AgentAccessibilityService.getInstance();
+                    if(s==null)throw new IllegalStateException("accessibility unavailable");
+                    String ia=x.optString("action","").toLowerCase(java.util.Locale.ROOT);
+                    String val=x.optString("value","");
+                    boolean ok=true;
+                    if("like".equals(ia))ok=s.performActionWithFallback("LIKE","","");
+                    else if("follow".equals(ia))ok=s.performActionWithFallback("FOLLOW","","");
+                    else if("comment".equals(ia)||"type_comment".equals(ia)){ok=s.performActionWithFallback("TYPE_TEXT",val,"");}
+                    else if("send".equals(ia))ok=s.performActionWithFallback("SEND_TEXT",val,"");
+                    else if("next".equals(ia))ok=s.performActionWithFallback("SWIPE","","up");
+                    else if("previous".equals(ia))ok=s.performActionWithFallback("SWIPE","","down");
+                    else if("back".equals(ia))ok=ActionEngine.back();
+                    else if("home".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT","Home|בית","");
+                    else if("reels".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT","Reels|רילס","");
+                    else if("stories".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT","Stories|סטורי|סיפורים","");
+                    else if("messages".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT","Messages|הודעות","");
+                    else if("profile".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT","Profile|פרופיל","");
+                    else if("search".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT","Search|חיפוש","");
+                    else if("type_search".equals(ia))ok=s.performActionWithFallback("TYPE_TEXT",val,"");
+                    else if("save".equals(ia))ok=s.performActionWithFallback("CLICK_CONTENT_DESCRIPTION","Save|שמירה|שמור","");
+                    else if("share".equals(ia))ok=s.performActionWithFallback("CLICK_CONTENT_DESCRIPTION","Share|שיתוף|שתף","");
+                    else if("unfollow".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT","Following|עוקב|נעקבים","");
+                    else if("open_result".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT",val,"");
+                    else if("new_post".equals(ia))ok=s.performActionWithFallback("CLICK_CONTENT_DESCRIPTION","New post|פוסט חדש|יצירה","");
+                    if(!ok)throw new IllegalStateException("instagram action failed: "+ia);
+                    break;
+                }
                 case "close_app": if(!ActionEngine.closeCurrentApp())throw new IllegalStateException("close_app failed");break;
                 case "close_current_app": if(!ActionEngine.closeCurrentApp())throw new IllegalStateException("close_current_app failed");break;
                 case "dial": ActionEngine.dial(this,x.optString("number"));break;
