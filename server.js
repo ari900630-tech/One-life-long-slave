@@ -132,6 +132,39 @@ app.get("/api/remote/send",(req,res)=>{
  q.push({id,text,createdAt:Date.now()}); remoteQueue.set(token,q);
  res.json({ok:true,id,queued:true});
 });
+// ChatGPT/automation bridge: a separate, server-authenticated command channel.
+// It never executes commands on Render; it only queues them for the registered Android agent.
+function authorizeChatBridge(req){
+ const expected=String(process.env.CHAT_AGENT_KEY||"").trim();
+ const supplied=String(req.get("x-agent-key")||req.query?.key||"").trim();
+ return !!expected && crypto.timingSafeEqual(Buffer.from(supplied),Buffer.from(expected));
+}
+app.post("/api/remote/command",(req,res)=>{
+ if(!authorizeChatBridge(req))return res.status(401).json({error:"unauthorized"});
+ const text=String(req.body?.text||"").trim();
+ const deviceId=String(req.body?.deviceId||"").trim();
+ if(!text)return res.status(400).json({error:"text required"});
+ let targets=[];
+ if(deviceId){
+  const token=remoteDevices.get(deviceId);
+  if(token)targets.push(token);
+ }else{
+  targets=[...remoteDevices.values()];
+ }
+ if(!targets.length)return res.status(409).json({error:"no registered Android device"});
+ const id=crypto.randomUUID();
+ for(const token of targets){
+  const q=remoteQueue.get(token)||[];
+  q.push({id,text,createdAt:Date.now(),source:"chat"});
+  remoteQueue.set(token,q);
+ }
+ res.json({ok:true,id,queued:true,devices:targets.length});
+});
+app.get("/api/remote/bridge-status",(req,res)=>{
+ if(!authorizeChatBridge(req))return res.status(401).json({error:"unauthorized"});
+ const devices=[...remoteDevices.entries()].map(([deviceId,token])=>({deviceId,queued:(remoteQueue.get(token)||[]).length}));
+ res.json({ok:true,bridge:true,devices});
+});
 app.get("/api/remote/status",(req,res)=>{
  const token=String(req.query?.token||"").trim();
  if(!token||![...remoteDevices.values()].includes(token))return res.status(401).json({error:"unauthorized"});
