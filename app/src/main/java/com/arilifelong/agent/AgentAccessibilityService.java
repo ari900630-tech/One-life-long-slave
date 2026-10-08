@@ -142,7 +142,12 @@ public boolean isInstagramActive(){
         float dx=0,dy=0; String d=direction==null?"up":direction.toLowerCase(Locale.ROOT); if("left".equals(d))dx=-w*.35f; else if("right".equals(d))dx=w*.35f; else if("down".equals(d))dy=h*.28f; else dy=-h*.28f;
         return swipe(cx-dx,cy-dy,cx+dx,cy+dy,420);
     }
-    public boolean clickCurrentLike(){return clickTextOrDescription("Like|אהבתי|לייק|👍");}
+    public boolean clickCurrentLike(){
+        if(clickTextOrDescription("Like|אהבתי|לייק|Liked|Double tap to like|לחיצה כפולה כדי לסמן לייק|Like this post"))return true;
+        if(clickNearbyButton(0.08f,0.70f,0.20f,0.86f))return true;
+        if(clickNearbyButton(0.78f,0.35f,0.98f,0.72f))return true;
+        return false;
+    }
     public boolean clickCurrentFollow(){return clickTextOrDescription("Follow|עקוב|עוקב|Follow back");}
     public boolean clickApprove(){return clickTextOrDescription("Approve|אשר|אישור|Allow|אפשר|Confirm|כן");}
     public boolean openChatMenu(){return clickTextOrDescription("שלוש נקודות|אפשרויות נוספות|More options|More|עוד|⋮|︙");}
@@ -291,12 +296,12 @@ public boolean isInstagramActive(){
         else if("comment".equals(a))ok=instagramClick("comment|תגובה|תגובות|Add a comment|הוסף תגובה");
         else if("follow".equals(a))ok=instagramClick("follow|עקוב|Follow back");
         else if("unfollow".equals(a))ok=instagramClick("unfollow|הפסק לעקוב|Unfollow");
-        else if("search".equals(a))ok=instagramClick("search|חיפוש|Search");
+        else if("search".equals(a))ok=instagramNavigation("search|חיפוש|Search|Search and explore|חיפוש וגילוי",0.28f,0.94f);
         else if("profile".equals(a))ok=instagramClick("profile|פרופיל|Profile");
-        else if("home".equals(a))ok=instagramClick("home|בית|Home");
-        else if("reels".equals(a))ok=instagramClick("reels|רילס|Reels");
+        else if("home".equals(a))ok=instagramNavigation("home|בית|Home|Feed",0.08f,0.94f);
+        else if("reels".equals(a))ok=instagramNavigation("reels|רילס|Reels",0.50f,0.94f);
         else if("stories".equals(a))ok=instagramClick("story|stories|סטורי|סיפור|Stories");
-        else if("messages".equals(a))ok=instagramClick("messages|message|הודעות|הודעה|Messenger");
+        else if("messages".equals(a))ok=instagramNavigation("messages|message|הודעות|הודעה|Messenger|Direct|DM",0.90f,0.94f);
         else if("new_post".equals(a))ok=instagramClick("new post|פוסט חדש|יצירה|Create|Create post");
         else if("next".equals(a))ok=swipeDirection("up");
         else if("previous".equals(a))ok=swipeDirection("down");
@@ -313,6 +318,7 @@ public boolean isInstagramActive(){
             ok=setText(target);
             if(ok){ waitForInstagramUiChange(450); ok=instagramClick("send|שלח|שליחה|Send|➤|✓"); }
         }
+        else if("notifications".equals(a))ok=instagramNavigation("Notifications|Activity|Notifications and activity|Your activity|התראות|פעילות|לב|Heart",0.88f,0.08f);
         else if("scroll".equals(a))ok=scroll(!"up".equalsIgnoreCase(target));
         else if("swipe".equals(a)||"swipe_direction".equals(a))ok=swipeDirection(target.isEmpty()?"up":target);
         else if("screen_info".equals(a))ok=true;
@@ -321,6 +327,29 @@ public boolean isInstagramActive(){
         if(ok)waitForInstagramUiChange(500);
         recordDiagnostic("INSTAGRAM_"+a,(ok?"SUCCESS":"FAILURE")+"|target="+target);
         return ok;
+    }
+
+    private boolean instagramNavigation(String alternatives,float fallbackX,float fallbackY){
+        if(instagramClick(alternatives))return true;
+        float w=getResources().getDisplayMetrics().widthPixels, h=getResources().getDisplayMetrics().heightPixels;
+        return tap(w*fallbackX,h*fallbackY);
+    }
+
+    private boolean clickNearbyButton(float minX,float minY,float maxX,float maxY){
+        AccessibilityNodeInfo root=getRootInActiveWindow();
+        if(root==null)return false;
+        return clickNearbyButtonRecursive(root,minX,maxX,minY,maxY);
+    }
+    private boolean clickNearbyButtonRecursive(AccessibilityNodeInfo n,float minX,float maxX,float minY,float maxY){
+        if(n==null)return false;
+        Rect r=new Rect(); n.getBoundsInScreen(r);
+        float w=getResources().getDisplayMetrics().widthPixels, h=getResources().getDisplayMetrics().heightPixels;
+        if(!r.isEmpty() && n.isClickable()){
+            float cx=r.centerX()/(float)Math.max(1,w), cy=r.centerY()/(float)Math.max(1,h);
+            if(cx>=minX&&cx<=maxX&&cy>=minY&&cy<=maxY && tap(r.centerX(),r.centerY()))return true;
+        }
+        for(int i=0;i<n.getChildCount();i++)if(clickNearbyButtonRecursive(n.getChild(i),minX,maxX,minY,maxY))return true;
+        return false;
     }
 
     private long tryParseDelay(String v){ try{return Math.max(100,Math.min(3000,Long.parseLong(v)));}catch(Exception e){return 500;} }
@@ -384,8 +413,17 @@ public boolean isInstagramActive(){
     }
     public boolean scroll(boolean forward){
         if(!instagramGuard("scroll"))return false;
-        AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return false;
-        return scrollRecursive(root,forward);
+        AccessibilityNodeInfo root=getRootInActiveWindow();
+        if(root!=null && scrollRecursive(root,forward))return true;
+        float w=getResources().getDisplayMetrics().widthPixels, h=getResources().getDisplayMetrics().heightPixels;
+        float x=w*0.50f;
+        float y1=forward?h*0.72f:h*0.30f;
+        float y2=forward?h*0.30f:h*0.72f;
+        for(int i=0;i<2;i++){
+            if(swipe(x,y1,x,y2,520))return true;
+            try{Thread.sleep(180);}catch(InterruptedException e){Thread.currentThread().interrupt();break;}
+        }
+        return false;
     }
     private boolean scrollRecursive(AccessibilityNodeInfo n,boolean forward){
         if(n==null)return false;
