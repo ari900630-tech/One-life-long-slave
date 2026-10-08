@@ -780,7 +780,11 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         b.append("\nהצלחתי: ").append(ar.succeeded).append(" מתוך ").append(ar.total);
         b.append("\nלא הצלחתי: ").append(ar.failed);
         if(ar.failureDetails!=null&&!ar.failureDetails.trim().isEmpty())b.append("\nמה לא הצליח: ").append(ar.failureDetails);
-        if(ar.screenInfo!=null&&!ar.screenInfo.trim().isEmpty())b.append("\nמידע שנקרא מהמסך: ").append(ar.screenInfo);
+        if(ar.screenInfo!=null&&!ar.screenInfo.trim().isEmpty()){
+            String screenSummary=ar.screenInfo.trim();
+            if(screenSummary.length()>700)screenSummary=screenSummary.substring(0,700)+"…";
+            b.append("\nמידע שנקרא מהמסך: ").append(screenSummary);
+        }
         b.append("\nזמן ביצוע: ").append(formatTime(ar.elapsedMs));
         return b.toString();
     }
@@ -883,6 +887,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                     RuntimeLogger.log(this,"INSTAGRAM_ONLY_BLOCK","blocked action="+t+" package="+x.optString("package",""));
                     result.failureDetails=appendFailure(result.failureDetails,"שלב "+(i+1)+": פעולה חסומה ("+t+")");
                     RuntimeLogger.log(this,"ACTION_STEP","FAILURE|"+(i+1)+"/"+actions.length()+"|reason=blocked");
+                    addConversation("הסוכן","לא ביצעתי פעולה חסומה: "+t);
                     continue;
                 }
 
@@ -896,6 +901,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                         RuntimeLogger.log(this,"INSTAGRAM_ONLY_BLOCK","Instagram not active for action="+t);
                         result.failureDetails=appendFailure(result.failureDetails,"שלב "+(i+1)+": Instagram לא היה פעיל");
                         RuntimeLogger.log(this,"ACTION_STEP","FAILURE|"+(i+1)+"/"+actions.length()+"|reason=instagram_not_active");
+                        addConversation("הסוכן","לא הצלחתי לבצע את השלב כי אינסטגרם לא היה פעיל: "+actionLabel+"; ממשיך לשלב הבא.");
                         continue;
                     }
                 }
