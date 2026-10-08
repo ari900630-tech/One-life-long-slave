@@ -99,6 +99,7 @@ app.post("/api/chat",async(req,res)=>{
   if(!response || !response.ok)return res.status(response?.status||503).json({error:lastError||"כל מודלי ה-AI אינם זמינים כרגע"});
   const msg=data?.choices?.[0]?.message||{};
   const actions=callsToActions(msg.tool_calls);
+  const suggestions=(String(req.body?.mode||"all").toLowerCase()==="instagram")?["עשה לייק","פתח הודעות","עבור לרילס","חפש באינסטגרם","עבור לפוסט הבא","שמור את הפוסט"]:["פתח הגדרות","פתח Chrome","חזור אחורה","עבור למסך הבית","פתח התראות","העלה עוצמת קול"];
   if(actions.length){ const names=actions.map(a=>a.type).filter(Boolean); return res.json({reply:msg.content||"",actions,actionSummary:names,unclear:msg.content||""}); }
   res.json({reply:msg.content||"לא התקבלה תשובה",actions:[]});
  }catch(e){res.status(500).json({error:"שגיאת שרת"})}
