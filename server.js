@@ -11,6 +11,7 @@ const app=express();
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 const PORT=process.env.PORT||3000;
 app.use(express.json({limit:"1mb"}));
+app.use(express.urlencoded({extended:false,limit:"1mb"}));
 app.use(express.static(path.join(__dirname,"public")));
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:25*1024*1024}});
 
