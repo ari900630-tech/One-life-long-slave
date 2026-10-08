@@ -74,14 +74,19 @@ function normalizeHeCommand(input){
  if(/^(פתח|תפתח) הגדרות$/.test(s)||s.includes("פתח את ההגדרות")){push("settings");return actions;}
  return null;
 }
+const INSTAGRAM_ACTION_TYPES=new Set(["open_app","instagram_action","click_text","click_content_description","click_role","type_text","send_text","long_click_text","tap","long_click","swipe","swipe_direction","scroll","scroll_repeat","scroll_until_text","click_repeat","screen_info","screenshot","back","like","follow","approve","open_chat_menu","pin","press_send"]);
 function repairActions(actions,userText){
  const direct=normalizeHeCommand(userText);
- if(direct) return direct;
- return Array.isArray(actions)?actions:[];
+ const candidate=direct || (Array.isArray(actions)?actions:[]);
+ return candidate.filter(a=>{
+  if(!a || !INSTAGRAM_ACTION_TYPES.has(String(a.type||"")))return false;
+  if(a.type==="open_app" && String(a.package||"")!=="com.instagram.android")return false;
+  return true;
+ });
 }
 function selectModelTools(mode){
  const sets={
-  instagram:["open_app","open_url","instagram_action","click_text","click_content_description","click_role","type_text","send_text","long_click_text","tap","long_click","swipe","swipe_direction","scroll","scroll_repeat","scroll_until_text","click_repeat","screen_info","screenshot","back","home","recents","notifications","quick_settings","like","follow","approve","open_chat_menu","press_send"],
+  instagram:["open_app","instagram_action","click_text","click_content_description","click_role","type_text","send_text","long_click_text","tap","long_click","swipe","swipe_direction","scroll","scroll_repeat","scroll_until_text","click_repeat","screen_info","screenshot","back","like","follow","approve","open_chat_menu","pin","press_send"],
   settings:["settings_action","system_action","click_text","tap","swipe","scroll","screen_info","back","home","volume","brightness","notifications"],
   overlay:["move_overlay","move_overlay_xy","resize_overlay","hide_overlay","show_overlay","screen_info","tap","click_text","back","home"],
   all:MODEL_TOOLS.map(t=>t.function.name)
@@ -134,7 +139,7 @@ app.post("/api/chat",async(req,res)=>{
     response=await fetch("https://api.groq.com/openai/v1/chat/completions",{
      method:"POST",
      headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},
-     body:JSON.stringify(conversational?{model,temperature:0.35,messages:[{role:"system",content:SYSTEM},{role:"user",content:String(lastUser).trim()}],tool_choice:"none"}:{model,temperature:0.2,messages:[{role:"system",content:SYSTEM},...messages],tools:selectModelTools(String(req.body?.mode||"all").toLowerCase()),tool_choice:"auto",parallel_tool_calls:false})
+     body:JSON.stringify(conversational?{model,temperature:0.35,messages:[{role:"system",content:SYSTEM},{role:"user",content:String(lastUser).trim()}],tool_choice:"none"}:{model,temperature:0.2,messages:[{role:"system",content:SYSTEM},...messages],tools:selectModelTools("instagram"),tool_choice:"auto",parallel_tool_calls:false})
     });
     data=await response.json();
     if(response.ok)break;
