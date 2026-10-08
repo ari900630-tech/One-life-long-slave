@@ -225,47 +225,66 @@ public class AgentAccessibilityService extends AccessibilityService {
     }
 
     public boolean instagramAction(String action,String value){
-        AccessibilityNodeInfo root=getRootInActiveWindow();
-        if(root==null)return false;
-        String pkg=root.getPackageName()==null?"":root.getPackageName().toString();
-        if(!"com.instagram.android".equals(pkg)){
-            recordDiagnostic("INSTAGRAM_"+(action==null?"":action),"FAILURE|wrong_package="+pkg);
-            return false;
-        }
         String a=action==null?"":action.toLowerCase(Locale.ROOT).trim();
         String target=value==null?"":value.trim();
+
+        // Instagram can take a short moment to publish its accessibility tree after navigation.
+        // Wait briefly instead of failing because the old screen is still the active root.
+        AccessibilityNodeInfo root=getRootInActiveWindow();
+        long deadline=System.currentTimeMillis()+1800;
+        while((root==null || root.getPackageName()==null || !"com.instagram.android".equals(root.getPackageName().toString()))
+                && System.currentTimeMillis()<deadline){
+            waitForInstagramUiChange(150);
+            root=getRootInActiveWindow();
+        }
+        String pkg=root==null||root.getPackageName()==null?"":root.getPackageName().toString();
+        if(!"com.instagram.android".equals(pkg)){
+            recordDiagnostic("INSTAGRAM_"+a,"FAILURE|wrong_package="+pkg+"|target="+target);
+            return false;
+        }
+
+        // Normalize common Hebrew/English variations so STT/model wording does not matter.
+        if("next_post".equals(a)||"next_item".equals(a)||"next_video".equals(a))a="next";
+        if("previous_post".equals(a)||"previous_item".equals(a))a="previous";
+        if("message".equals(a)||"chat".equals(a)||"inbox".equals(a))a="messages";
+        if("newpost".equals(a)||"create_post".equals(a)||"post".equals(a))a="new_post";
+        if("unfollow_user".equals(a))a="unfollow";
+        if("search_user".equals(a)||"search_account".equals(a))a="search";
+
         boolean ok=false;
-        if("like".equals(a))ok=instagramClick("like|אהבתי|לייק|Liked|Unlike|Unlike post");
+        if("like".equals(a))ok=instagramClick("like|אהבתי|לייק|Liked");
         else if("save".equals(a))ok=instagramClick("save|שמור|Saved|Unsave");
-        else if("share".equals(a))ok=instagramClick("share|שתף|שלח|Share");
+        else if("share".equals(a))ok=instagramClick("share|שתף|Share");
         else if("comment".equals(a))ok=instagramClick("comment|תגובה|תגובות|Add a comment|הוסף תגובה");
         else if("follow".equals(a))ok=instagramClick("follow|עקוב|Follow back");
         else if("unfollow".equals(a))ok=instagramClick("unfollow|הפסק לעקוב|Unfollow");
-        else if("search".equals(a))ok=instagramClick("search|חיפוש");
-        else if("profile".equals(a))ok=instagramClick("profile|פרופיל");
-        else if("home".equals(a))ok=instagramClick("home|בית");
-        else if("reels".equals(a))ok=instagramClick("reels|רילס");
-        else if("stories".equals(a))ok=instagramClick("story|stories|סטורי|סיפור");
-        else if("messages".equals(a))ok=instagramClick("messages|message|הודעות|הודעה");
+        else if("search".equals(a))ok=instagramClick("search|חיפוש|Search");
+        else if("profile".equals(a))ok=instagramClick("profile|פרופיל|Profile");
+        else if("home".equals(a))ok=instagramClick("home|בית|Home");
+        else if("reels".equals(a))ok=instagramClick("reels|רילס|Reels");
+        else if("stories".equals(a))ok=instagramClick("story|stories|סטורי|סיפור|Stories");
+        else if("messages".equals(a))ok=instagramClick("messages|message|הודעות|הודעה|Messenger");
         else if("new_post".equals(a))ok=instagramClick("new post|פוסט חדש|יצירה|Create|Create post");
         else if("next".equals(a))ok=swipeDirection("up");
         else if("previous".equals(a))ok=swipeDirection("down");
         else if("back".equals(a))ok=ActionEngine.back();
         else if("type_comment".equals(a))ok=setText(target);
-        else if("send".equals(a))ok=instagramClick("send|שלח|שליחה|Send");
+        else if("send".equals(a))ok=instagramClick("send|שלח|שליחה|Send|➤|✓");
         else if("open_result".equals(a)&&!target.isEmpty())ok=instagramClick(target);
         else if("click".equals(a)||"click_text".equals(a)||"click_button".equals(a)||"click_element".equals(a))ok=instagramClick(target);
         else if("click_content_description".equals(a)||"click_description".equals(a))ok=clickTextOrDescription(target);
         else if("long_click".equals(a)||"long_click_text".equals(a))ok=longClickText(target);
         else if("type".equals(a)||"type_text".equals(a)||"text".equals(a))ok=setText(target);
-        else if("send_text".equals(a))ok=setText(target)&&instagramClick("send|שלח|שליחה|Send|➤|✓");
+        else if("send_text".equals(a)){
+            ok=setText(target);
+            if(ok){ waitForInstagramUiChange(450); ok=instagramClick("send|שלח|שליחה|Send|➤|✓"); }
+        }
         else if("scroll".equals(a))ok=scroll(!"up".equalsIgnoreCase(target));
         else if("swipe".equals(a)||"swipe_direction".equals(a))ok=swipeDirection(target.isEmpty()?"up":target);
-        else if("back".equals(a))ok=ActionEngine.back();
-        else if("home".equals(a))ok=home();
         else if("screen_info".equals(a))ok=true;
         else if("wait".equals(a)||"delay".equals(a)){ waitForInstagramUiChange(tryParseDelay(target)); ok=true; }
-        if(ok) waitForInstagramUiChange(350);
+
+        if(ok)waitForInstagramUiChange(500);
         recordDiagnostic("INSTAGRAM_"+a,(ok?"SUCCESS":"FAILURE")+"|target="+target);
         return ok;
     }
