@@ -23,7 +23,15 @@ public class AgentAccessibilityService extends AccessibilityService {
     private final Handler handler = new Handler();
     private String lastAnnouncedScreen="";
     private long lastAnnouncedAt=0;
-    public boolean isInstagramActive(){
+    private boolean instagramGuard(String action){
+        AccessibilityNodeInfo root=getRootInActiveWindow();
+        String pkg=root==null||root.getPackageName()==null?"":root.getPackageName().toString();
+        boolean ok="com.instagram.android".equals(pkg);
+        if(!ok) recordDiagnostic("INSTAGRAM_GUARD","BLOCKED|action="+action+"|package="+pkg);
+        return ok;
+    }
+
+public boolean isInstagramActive(){
         try{
             android.view.accessibility.AccessibilityNodeInfo root=getRootInActiveWindow();
             if(root==null||root.getPackageName()==null)return false;
@@ -78,6 +86,7 @@ public class AgentAccessibilityService extends AccessibilityService {
     @Override public void onDestroy(){ if(instance==this)instance=null; super.onDestroy(); }
 
     public boolean clickText(String text){
+        if(!instagramGuard("clickText"))return false;
         AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return false;
         return clickRecursive(root,text,false);
     }
@@ -100,6 +109,7 @@ public class AgentAccessibilityService extends AccessibilityService {
         for(int i=0;i<n.getChildCount();i++)collectMatches(n.getChild(i),alternatives,out);
     }
     public boolean clickTextOrDescription(String target){
+        if(!instagramGuard("clickTextOrDescription"))return false;
         RuntimeLogger.log(this,"ACCESSIBILITY_ACTION","click target="+target);
         for(AccessibilityNodeInfo n:matchingNodes(target)){
             if(n.isClickable()&&n.performAction(AccessibilityNodeInfo.ACTION_CLICK))return true;
@@ -108,12 +118,14 @@ public class AgentAccessibilityService extends AccessibilityService {
         } return false;
     }
     public boolean longClickText(String target){
+        if(!instagramGuard("longClickText"))return false;
         for(AccessibilityNodeInfo n:matchingNodes(target)){
             if(n.isLongClickable()&&n.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK))return true;
             Rect r=new Rect(); n.getBoundsInScreen(r); if(!r.isEmpty()&&longClick(r.centerX(),r.centerY()))return true;
         } return false;
     }
     public boolean swipeDirection(String direction){
+        if(!instagramGuard("swipeDirection"))return false;
         float w=getResources().getDisplayMetrics().widthPixels, h=getResources().getDisplayMetrics().heightPixels, cx=w/2f, cy=h/2f;
         float dx=0,dy=0; String d=direction==null?"up":direction.toLowerCase(Locale.ROOT); if("left".equals(d))dx=-w*.35f; else if("right".equals(d))dx=w*.35f; else if("down".equals(d))dy=h*.28f; else dy=-h*.28f;
         return swipe(cx-dx,cy-dy,cx+dx,cy+dy,420);
@@ -190,6 +202,7 @@ public class AgentAccessibilityService extends AccessibilityService {
         return false;
     }
     public boolean setText(String text){
+        if(!instagramGuard("setText"))return false;
         AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return false;
         AccessibilityNodeInfo target=root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
         if(target==null) target=findEditable(root);
@@ -358,6 +371,7 @@ public class AgentAccessibilityService extends AccessibilityService {
         return target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,b);
     }
     public boolean scroll(boolean forward){
+        if(!instagramGuard("scroll"))return false;
         AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null)return false;
         return scrollRecursive(root,forward);
     }
@@ -370,10 +384,12 @@ public class AgentAccessibilityService extends AccessibilityService {
         for(int i=0;i<n.getChildCount();i++) if(scrollRecursive(n.getChild(i),forward))return true;
         return false;
     }
-    public boolean globalBack(){return performGlobalAction(GLOBAL_ACTION_BACK);}
-    public boolean home(){return performGlobalAction(GLOBAL_ACTION_HOME);}
-    public boolean recents(){return performGlobalAction(GLOBAL_ACTION_RECENTS);}
+    public boolean globalBack(){return instagramGuard("globalBack")&&performGlobalAction(GLOBAL_ACTION_BACK);}
+    public boolean home(){recordDiagnostic("INSTAGRAM_GUARD","BLOCKED|action=home");return false;}
+    public boolean recents(){recordDiagnostic("INSTAGRAM_GUARD","BLOCKED|action=recents");return false;}
     public boolean closeCurrentApp(){
+        recordDiagnostic("INSTAGRAM_GUARD","BLOCKED|action=closeCurrentApp"); return false;
+        /*
         RuntimeLogger.log(this,"CLOSE_APP","opening recents");
         if(!performGlobalAction(GLOBAL_ACTION_RECENTS))return false;
         try{Thread.sleep(450);}catch(InterruptedException e){Thread.currentThread().interrupt();}
@@ -385,14 +401,16 @@ public class AgentAccessibilityService extends AccessibilityService {
         performGlobalAction(GLOBAL_ACTION_HOME);
         return swiped;
     }
-    public boolean notifications(){return performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS);}
-    public boolean quickSettings(){return performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS);}
+    public boolean notifications(){recordDiagnostic("INSTAGRAM_GUARD","BLOCKED|action=notifications");return false;}
+    public boolean quickSettings(){recordDiagnostic("INSTAGRAM_GUARD","BLOCKED|action=quickSettings");return false;}
     public boolean longClick(float x,float y){
+        if(!instagramGuard("longClick"))return false;
         if(android.os.Build.VERSION.SDK_INT<24)return false;
         Path p=new Path();p.moveTo(x,y);
         return dispatchGesture(new GestureDescription.Builder().addStroke(new GestureDescription.StrokeDescription(p,0,650)).build(),null,null);
     }
     public boolean swipe(float x1,float y1,float x2,float y2,long duration){
+        if(!instagramGuard("swipe"))return false;
         if(android.os.Build.VERSION.SDK_INT<24)return false;
         Path p=new Path();p.moveTo(x1,y1);p.lineTo(x2,y2);
         return dispatchGesture(new GestureDescription.Builder().addStroke(new GestureDescription.StrokeDescription(p,0,Math.max(100,duration))).build(),null,null);
@@ -416,14 +434,17 @@ public class AgentAccessibilityService extends AccessibilityService {
         return done;
     }
     public boolean scrollUntilText(String text,boolean forward,int max,long delay){
+        if(!instagramGuard("scrollUntilText"))return false;
         int n=Math.max(1,Math.min(80,max));
         for(int i=0;i<n;i++){if(clickContains(text))return true;if(!scroll(forward))break;try{Thread.sleep(Math.max(50,Math.min(1000,delay)));}catch(Exception ignored){}}
         return clickContains(text);
     }
     public boolean screenshot(){
+        if(!instagramGuard("screenshot"))return false;
         return android.os.Build.VERSION.SDK_INT>=30 && performGlobalAction(GLOBAL_ACTION_TAKE_SCREENSHOT);
     }
     public boolean tap(float x,float y){
+        if(!instagramGuard("tap"))return false;
         if(android.os.Build.VERSION.SDK_INT<24)return false;
         Path p=new Path();p.moveTo(x,y);
         return dispatchGesture(new GestureDescription.Builder().addStroke(new GestureDescription.StrokeDescription(p,0,50)).build(),null,null);
