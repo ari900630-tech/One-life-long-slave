@@ -697,9 +697,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
         for(int i=0;i<actions.length();i++)try{
             setMode("⚙ "+(i+1)+"/"+actions.length(),"מבצע שלב "+(i+1)+" מתוך "+actions.length());
             JSONObject x=actions.getJSONObject(i); String t=x.optString("type");
-            if(t.equals("open_app")||t.equals("settings")||t.equals("app_settings")||t.equals("system_action")||t.equals("play_store_search")||t.equals("open_url")){
-                try{Thread.sleep(900);}catch(InterruptedException e){Thread.currentThread().interrupt();}
-            }
+            boolean transitionAction=t.equals("open_app")||t.equals("settings")||t.equals("app_settings")||t.equals("system_action")||t.equals("play_store_search")||t.equals("open_url");
             switch(t){
                 case "open_url": if(!ActionEngine.openUrl(this,x.optString("url")))throw new IllegalStateException("open_url failed");break;
                 case "open_app": if(!ActionEngine.openApp(this,x.optString("package")))throw new IllegalStateException("open_app failed: "+x.optString("package"));break;
@@ -708,26 +706,7 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                     if(s==null)throw new IllegalStateException("accessibility unavailable");
                     String ia=x.optString("action","").toLowerCase(java.util.Locale.ROOT);
                     String val=x.optString("value","");
-                    boolean ok=true;
-                    if("like".equals(ia))ok=s.performActionWithFallback("LIKE","","");
-                    else if("follow".equals(ia))ok=s.performActionWithFallback("FOLLOW","","");
-                    else if("comment".equals(ia)||"type_comment".equals(ia)){ok=s.performActionWithFallback("TYPE_TEXT",val,"");}
-                    else if("send".equals(ia))ok=s.performActionWithFallback("SEND_TEXT",val,"");
-                    else if("next".equals(ia))ok=s.performActionWithFallback("SWIPE","","up");
-                    else if("previous".equals(ia))ok=s.performActionWithFallback("SWIPE","","down");
-                    else if("back".equals(ia))ok=ActionEngine.back();
-                    else if("home".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT","Home|בית","");
-                    else if("reels".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT","Reels|רילס","");
-                    else if("stories".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT","Stories|סטורי|סיפורים","");
-                    else if("messages".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT","Messages|הודעות","");
-                    else if("profile".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT","Profile|פרופיל","");
-                    else if("search".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT","Search|חיפוש","");
-                    else if("type_search".equals(ia))ok=s.performActionWithFallback("TYPE_TEXT",val,"");
-                    else if("save".equals(ia))ok=s.performActionWithFallback("CLICK_CONTENT_DESCRIPTION","Save|שמירה|שמור","");
-                    else if("share".equals(ia))ok=s.performActionWithFallback("CLICK_CONTENT_DESCRIPTION","Share|שיתוף|שתף","");
-                    else if("unfollow".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT","Following|עוקב|נעקבים","");
-                    else if("open_result".equals(ia))ok=s.performActionWithFallback("CLICK_TEXT",val,"");
-                    else if("new_post".equals(ia))ok=s.performActionWithFallback("CLICK_CONTENT_DESCRIPTION","New post|פוסט חדש|יצירה","");
+                    boolean ok=s.instagramAction(ia,val);
                     if(!ok)throw new IllegalStateException("instagram action failed: "+ia);
                     break;
                 }
@@ -739,8 +718,13 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                 case "email": ActionEngine.email(this,x.optString("address"),x.optString("subject"),x.optString("body"));break;
                 case "maps": ActionEngine.maps(this,x.optString("query"));break;
                 case "camera": ActionEngine.camera(this);break;
-                case "settings": ActionEngine.settings(this);break;
-                case "app_settings": ActionEngine.appSettings(this,x.optString("package"));break;
+                case "settings": if(!ActionEngine.settings(this))throw new IllegalStateException("settings failed");break;
+                case "settings_action": {
+                    AgentAccessibilityService s=AgentAccessibilityService.getInstance();
+                    if(s==null||!s.settingsAction(x.optString("action"),x.optString("value")))throw new IllegalStateException("settings_action failed");
+                    break;
+                }
+                case "app_settings": if(!ActionEngine.appSettings(this,x.optString("package")))throw new IllegalStateException("app_settings failed");break;
                 case "play_store_search": ActionEngine.playStoreSearch(this,x.optString("query"));break;
                 case "move_overlay": moveOverlay(x.optString("position","top"));break;
                 case "long_click": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.longClick((float)x.optDouble("x",540),(float)x.optDouble("y",1000));break;}
@@ -752,20 +736,20 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                 case "recents": ActionEngine.recents();break;
                 case "notifications": ActionEngine.notifications(this);break;
                 case "quick_settings": ActionEngine.quickSettings(this);break;
-                case "click_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.performActionWithFallback("CLICK_TEXT",x.optString("text"),"");break;}
-                case "click_content_description": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.performActionWithFallback("CLICK_CONTENT_DESCRIPTION",x.optString("text",x.optString("target")),"");break;}
-                case "click_role": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.performActionWithFallback("CLICK_ROLE",x.optString("text",x.optString("role")),"");break;}
-                case "long_click_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.performActionWithFallback("LONG_CLICK_TEXT",x.optString("text",x.optString("target")),"");break;}
-                case "type_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.performActionWithFallback("TYPE_TEXT",x.optString("text"),"");break;}
-                case "send_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.performActionWithFallback("SEND_TEXT",x.optString("text"),"");break;}
-                case "scroll": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.performActionWithFallback("SCROLL","",x.optString("direction","down"));break;}
-                case "swipe_direction": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.performActionWithFallback("SWIPE","",x.optString("direction","up"));break;}
-                case "like": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.performActionWithFallback("LIKE","","");break;}
-                case "follow": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.performActionWithFallback("FOLLOW","","");break;}
-                case "approve": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.performActionWithFallback("APPROVE","","");break;}
-                case "open_chat_menu": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.openChatMenu();break;}
-                case "pin": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.pinItem();break;}
-                case "press_send": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.pressSend();break;}
+                case "click_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("CLICK_TEXT",x.optString("text"),""))throw new IllegalStateException("click_text failed");break;}
+                case "click_content_description": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("CLICK_CONTENT_DESCRIPTION",x.optString("text",x.optString("target")),""))throw new IllegalStateException("click_content_description failed");break;}
+                case "click_role": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("CLICK_ROLE",x.optString("text",x.optString("role")),""))throw new IllegalStateException("click_role failed");break;}
+                case "long_click_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("LONG_CLICK_TEXT",x.optString("text",x.optString("target")),""))throw new IllegalStateException("long_click_text failed");break;}
+                case "type_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("TYPE_TEXT",x.optString("text"),""))throw new IllegalStateException("type_text failed");break;}
+                case "send_text": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("SEND_TEXT",x.optString("text"),""))throw new IllegalStateException("send_text failed");break;}
+                case "scroll": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("SCROLL","",x.optString("direction","down")))throw new IllegalStateException("scroll failed");break;}
+                case "swipe_direction": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("SWIPE","",x.optString("direction","up")))throw new IllegalStateException("swipe_direction failed");break;}
+                case "like": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("LIKE","",""))throw new IllegalStateException("like failed");break;}
+                case "follow": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("FOLLOW","",""))throw new IllegalStateException("follow failed");break;}
+                case "approve": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.performActionWithFallback("APPROVE","",""))throw new IllegalStateException("approve failed");break;}
+                case "open_chat_menu": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.openChatMenu())throw new IllegalStateException("open_chat_menu failed");break;}
+                case "pin": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.pinItem())throw new IllegalStateException("pin failed");break;}
+                case "press_send": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s==null||!s.pressSend())throw new IllegalStateException("press_send failed");break;}
                 case "open_notifications": ActionEngine.notifications(this);break;
                 case "uninstall_app": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.uninstallApp(x.optString("package"),x.optString("app"));break;}
                 case "uninstall_current_app": {AgentAccessibilityService s=AgentAccessibilityService.getInstance();if(s!=null)s.uninstallApp("", "");break;}
@@ -793,7 +777,9 @@ ApiClient.startRemotePolling(getApplicationContext(), cmd -> { if(cmd!=null&&!cm
                 case "chrome_clear_search": {AgentAccessibilityService svc=AgentAccessibilityService.getInstance();if(svc!=null)svc.chromeClearSearch();break;}
                 case "copy": {android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(android.content.ClipData.newPlainText("agent",x.optString("text")));break;}
             }
-            // פעולה שלא מחזירה boolean מסומנת כהצלחה אם לא נזרקה חריגה.
+            if(transitionAction){
+                try{Thread.sleep(1200);}catch(InterruptedException e){Thread.currentThread().interrupt();}
+            }
             result.succeeded++;
         }catch(Exception ignored){result.failed++;}
         return result;
