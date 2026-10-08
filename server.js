@@ -50,9 +50,9 @@ function normalizeHeCommand(input){
  const push=(type,obj={})=>actions.push({type,...obj});
  if(/(פתח|תפתח|תעבור|עבור).*הודעות/.test(s)&&/אינסט/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"messages"});return actions;}\n if(/(פתח|תפתח|תעבור|עבור|לך|תלך).*התראות/.test(s)&&(/אינסט/.test(s)||/מסך ההתראות|להתראות/.test(s))){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"notifications"});return actions;}
  if(/(תעבור|עבור|פתח|תפתח|לך|תלך).*חיפוש( באינסטגרם)?$/.test(s)||/מסך החיפוש/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"search"});return actions;}
- if(/(תן|תעשה|שים|תעשה לי|תן לי).*לייק.*(סרטון|סירטון|וידאו|רילס)|/(לייק|לייק לסרטון|תן לייק)/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"like"});return actions;}
- if(/(שתף|תשתף|לשתף|שיתוף).*?(סרטון|סירטון|וידאו|רילס)|/(שתף את זה|שתף סרטון)/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"share"});return actions;}
- if(/(שמור|תשמור|לשמור).*?(סרטון|סירטון|וידאו|רילס)|/(שמור את זה|שמור סרטון)/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"save"});return actions;}
+ if(/((תן|תעשה|שים|תעשה לי|תן לי).*לייק.*(סרטון|סירטון|וידאו|רילס)|^(לייק|לייק לסרטון|תן לייק|תן לייק לסרטון)$)/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"like"});return actions;}
+ if(/((שתף|תשתף|לשתף|שיתוף).*?(סרטון|סירטון|וידאו|רילס)|^(שתף את זה|שתף סרטון)$)/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"share"});return actions;}
+ if(/((שמור|תשמור|לשמור).*?(סרטון|סירטון|וידאו|רילס)|^(שמור את זה|שמור סרטון)$)/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"save"});return actions;}
  if(/(עבור|תעבור|פתח|תפתח).*רילס/.test(s)&&/אינסט/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"reels"});return actions;}
  if(/(עשה|תעשה|תעשי|שים|תשים).*לייק/.test(s)&&/אינסט/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"like"});return actions;}
  if(/(שמור|תשמור|לשמור).*פוסט/.test(s)&&/אינסט/.test(s)){push("open_app",{package:"com.instagram.android"});push("instagram_action",{action:"save"});return actions;}
