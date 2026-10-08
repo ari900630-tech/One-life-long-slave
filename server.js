@@ -36,7 +36,7 @@ const TOOLS=[{"type":"function","function":{"name":"open_url","description":"×‘×
 const MODEL_TOOLS=TOOLS.map(t=>({type:"function",function:{name:t.function.name,description:String(t.function.description||"").slice(0,120),parameters:{type:"object",additionalProperties:true}}}));
 function selectModelTools(mode){
  const sets={
-  instagram:["instagram_action","click_text","click_content_description","type_text","send_text","tap","swipe","scroll","screen_info","screenshot","back","home"],
+  instagram:["open_app","open_url","instagram_action","click_text","click_content_description","type_text","send_text","tap","swipe","scroll","screen_info","screenshot","back","home"],
   settings:["settings_action","system_action","click_text","tap","swipe","scroll","screen_info","back","home","volume","brightness","notifications"],
   overlay:["move_overlay","move_overlay_xy","resize_overlay","hide_overlay","show_overlay","screen_info","tap","click_text","back","home"],
   all:["open_app","open_url","dial","call","sms","maps","click_text","type_text","tap","swipe","scroll","screen_info","back","home","settings_action"]
