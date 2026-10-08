@@ -106,7 +106,7 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         if(wm==null||!Settings.canDrawOverlays(this))return;
 
         chatPanel=new LinearLayout(this);
-        chatPanel.setOrientation(LinearLayout.HORIZONTAL);
+        chatPanel.setOrientation(LinearLayout.VERTICAL);
         chatPanel.setGravity(Gravity.CENTER_VERTICAL);
         chatPanel.setPadding(8,7,8,7);
         GradientDrawable shell=bg(Color.WHITE,30);
@@ -166,10 +166,15 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
 
         TextView dragHandle=label("⋮⋮",18,Color.rgb(145,146,158));
         dragHandle.setGravity(Gravity.CENTER);
-        chatPanel.addView(dragHandle,new LinearLayout.LayoutParams(28,48));
-        chatPanel.addView(chatInput,new LinearLayout.LayoutParams(0,48,1));
-        chatPanel.addView(send,new LinearLayout.LayoutParams(68,44));
-        chatPanel.addView(close,new LinearLayout.LayoutParams(42,48));
+        LinearLayout topRow=new LinearLayout(this);
+        topRow.setOrientation(LinearLayout.HORIZONTAL);
+        topRow.setGravity(Gravity.CENTER_VERTICAL);
+        topRow.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        topRow.addView(dragHandle,new LinearLayout.LayoutParams(28,48));
+        topRow.addView(chatInput,new LinearLayout.LayoutParams(0,48,1));
+        topRow.addView(send,new LinearLayout.LayoutParams(68,44));
+        topRow.addView(close,new LinearLayout.LayoutParams(42,48));
+        chatPanel.addView(topRow,new LinearLayout.LayoutParams(-1,48));
 
         LinearLayout.LayoutParams messageLp=new LinearLayout.LayoutParams(-1,58);
         chatPanel.addView(chatMessage,messageLp);
@@ -179,7 +184,8 @@ public class FloatingAgentService extends Service implements VoiceEngine.Listene
         int type=Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE;
         chatLp=new WindowManager.LayoutParams(
                 -1,WindowManager.LayoutParams.WRAP_CONTENT,type,
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                 PixelFormat.TRANSLUCENT);
         chatLp.gravity=Gravity.BOTTOM|Gravity.LEFT;
         chatLp.x=0;
